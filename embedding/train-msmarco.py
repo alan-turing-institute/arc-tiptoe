@@ -50,51 +50,6 @@ def compute_embeddings(model):
     return (embeddings, docids)
 
 
-# def chunked_data(data, seq_len=SEQ_LEN):
-#     """Chunk the data into sequences of length seq_len.
-
-#     Args:
-#         data: list of strings to chunk
-#         seq_len: maximum sequence length
-
-#     Returns:
-#         List of chunked strings.
-#     """
-#     data["body"] = " ".join(data["body"].split()[0:seq_len])
-#     return data
-
-
-# def compute_embeddings_hf(model: str, dataset: str) -> tuple[numpy.ndarray, list[str]]:
-#     """Compute embeddings using Hugging Face datasets.
-
-#     Args:
-#         model: model name to use for embeddings
-
-#     Returns:
-#         Tuple of embeddings and document IDs.
-#     """
-#     device = "mps" if torch.backends.mps.is_available() else "cpu"
-#     print(f"Using device: {device}")
-#     sys.stdout.flush()
-#     model = SentenceTransformer(model, device=device)
-#     model.max_seq_length = SEQ_LEN
-#     dataset = load_dataset(dataset, "docs")
-#     dataset = dataset.map(
-#         chunked_data, batched=True, batch_size=1000, args={"seq_len": SEQ_LEN}
-#     )
-#     print("Loaded and preprocessed dataset")
-#     sys.stdout.flush()
-#     embeddings = numpy.array(
-#         model.encode(dataset, batch_size=32, convert_to_numpy=True)
-#     )
-#     print("Encoded all")
-#     sys.stdout.flush()
-
-#     docids = dataset["doc_id"]
-
-#     return (embeddings, docids)
-
-
 def process_embeddings(embeddings, docids, out_docids, out_embeddings):
     numpy.save(out_docids, numpy.array(docids))
 
