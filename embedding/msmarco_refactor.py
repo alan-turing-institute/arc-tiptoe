@@ -3,49 +3,66 @@ Refactoring the MS MARCO embedding code to improve readability and maintainabili
 including using the huggingface datasets library for data handling.
 """
 
+import os
+
 import ir_datasets
 import numpy as np
+import psutil
 from config import SEQ_LEN
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
 
-def load_msmarco_dataset():
+def load_msmarco_dataset(max_docs: int = None) -> Dataset:
     """Load the MS MARCO dataset and convert it to a Hugging Face dataset."""
-    dataset = ir_datasets.load("msmarco-doc-dev")
+    dataset = ir_datasets.load("msmarco-document")
 
     def convert_to_hf_format():
         docs = []
-        for doc in dataset.docs_iter():
+        for doc in tqdm(dataset.docs_iter(), desc="Loading MS MARCO documents"):
+            if max_docs and len(docs) >= max_docs:
+                break
             docs.append(
                 {
                     "doc_id": doc.doc_id,
-                    "body": doc.text,
+                    "body": doc.body,
                     "title": doc.title,
                     "url": doc.url,
                 }
             )
-        return Dataset.from_dict({"docs": docs})
+        return Dataset.from_list(docs)
 
     return convert_to_hf_format()
 
 
 def chunk_text(text: str, seq_len: int = SEQ_LEN) -> str:
     """Chunk the text into smaller segments of a specified length."""
-    words = text.split()
-    return " ".join(words[:seq_len]) if len(words) > seq_len else text
+    # Fix: return a string, not a list
+    return " ".join(text.split()[:seq_len])
 
 
 def extract_embeddings(
-    dataset: Dataset, model_name: str = "msmarco-distilbert-base-tas-b"
+    texts: list[str],
+    doc_ids: list[str],
+    model_name: str = "msmarco-distilbert-base-tas-b",
 ) -> tuple[np.ndarray, list[str]]:
     """Extract embeddings from the dataset using a specified model."""
+    # Disable tokenizers parallelism to avoid multiprocessing issues
+    import os
+
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     model = SentenceTransformer(model_name)
 
-    # Prepare the text data for embedding
-    embeddings = np.array(model.encode(dataset, batch_size=32, convert_to_numpy=True))
+    # Process in smaller batches to avoid memory issues
+    embeddings = np.array(
+        model.encode(
+            texts, batch_size=16, convert_to_numpy=True, show_progress_bar=True
+        )
+    )
 
-    return embeddings, [doc["doc_id"] for doc in dataset]
+    return embeddings, doc_ids
 
 
 def save_embeddings(
@@ -55,8 +72,8 @@ def save_embeddings(
     out_docids_file: str,
 ):
     """Save the embeddings and document IDs to files."""
-    np.save(out_docids_file, np.array(doc_ids))
-    np.save(out_embeddings_file, embeddings)
+    np.save(f"embedding/embeddings/{out_docids_file}", np.array(doc_ids))
+    np.save(f"embedding/embeddings/{out_embeddings_file}", embeddings)
     print(
         f"Embeddings saved to {out_embeddings_file} and document IDs to {out_docids_file}"
     )
@@ -74,26 +91,30 @@ def process_embeddings(
     save_embeddings(embeddings, doc_ids, out_embeddings_file, out_docids_file)
 
 
-def main():
+def main(max_docs: int = None):
     """Main function"""
+    process = psutil.Process(os.getpid())
+    memory_usage = process.memory_info().rss / (1024 * 1024)  # in MB
+    print(f"Memory usage before loading dataset: {memory_usage:.2f} MB")
+
     # Load the dataset
-    hf_dataset = load_msmarco_dataset()
+    hf_dataset = load_msmarco_dataset(max_docs=max_docs)
 
     # Print some information about the dataset
     print(f"Loaded {len(hf_dataset)} documents from MS MARCO.")
     print("Sample document:", hf_dataset[0])
 
-    # Process the dataset to chunk text
+    # Process the dataset to chunk text - remove batched=True for now
     hf_dataset = hf_dataset.map(
-        lambda x: {"body": chunk_text(x["body"])}, batched=True, batch_size=32
+        lambda x: {"body": chunk_text(x["body"])}, batch_size=32
     )
 
     # Extract embeddings
-    embeddings, doc_ids = extract_embeddings(hf_dataset["body"])
+    embeddings, doc_ids = extract_embeddings(hf_dataset["body"], hf_dataset["doc_id"])
 
     # Process and save the embeddings
     process_embeddings(embeddings, doc_ids)
 
 
 if __name__ == "__main__":
-    main()
+    main(max_docs=1000000)  # Adjust max_docs as needed
