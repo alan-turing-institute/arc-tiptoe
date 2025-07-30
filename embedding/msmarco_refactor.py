@@ -3,6 +3,8 @@ Refactoring the MS MARCO embedding code to improve readability and maintainabili
 including using the huggingface datasets library for data handling.
 """
 
+import gc
+import glob
 import logging
 import os
 
@@ -41,6 +43,8 @@ def load_msmarco_dataset(max_docs: int = None) -> Dataset:
 def chunk_text(text: str, seq_len: int = SEQ_LEN) -> str:
     """Chunk the text into smaller segments of a specified length."""
     # Fix: return a string, not a list
+    if not text:
+        return ""
     return " ".join(text.split()[:seq_len])
 
 
@@ -132,5 +136,138 @@ def main(max_docs: int = None):
     process_embeddings(embeddings, doc_ids)
 
 
+### Refactor for processing in chunks
+def process_in_batches(chunk_size: int = 50000):
+    """Process the dataset in batches to avoid memory issues."""
+
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler("msmarco_embeddings.log"),
+        ],
+    )
+    logger = logging.getLogger(__name__)
+
+    # load the dataset iterator
+    dataset = ir_datasets.load("msmarco-document")
+
+    # Initialise model once
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = SentenceTransformer("msmarco-distilbert-base-tas-b", device=device)
+    batch_size = 128 if device == "cuda" else 32
+
+    logger.info(f"Using device: {device}, batch size: {batch_size}")
+
+    # Process the dataset in chunks
+    chunk_num = 0
+    docs_buffer = []
+
+    for doc in tqdm(dataset.docs_iter(), desc="Processing documents"):
+        docs_buffer.append(
+            {
+                "doc_id": doc.doc_id,
+                "body": chunk_text(doc.body),
+                "title": doc.title,
+                "url": doc.url,
+            }
+        )
+
+        # Process the buffer when it reaches the chunk size
+        if len(docs_buffer) >= chunk_size:
+            process_chunk(docs_buffer, model, batch_size, chunk_num, logger)
+            docs_buffer = []  # Clear the buffer
+            chunk_num += 1
+            gc.collect()  # Force garbage collection to free memory
+
+    # Process any remaining documents in the buffer
+    if docs_buffer:
+        process_chunk(docs_buffer, model, batch_size, chunk_num, logger)
+
+    logger.info(f"completed processing {chunk_num + 1} chunks of documents.")
+
+
+def process_chunk(docs_buffer, model, batch_size, chunk_num, logger):
+    "process a single chunk of documents and save embeddings"
+    logger.info(f"Processing chunk {chunk_num} with {len(docs_buffer)} documents.")
+
+    # Extract texts and doc_ids
+    texts = [doc["body"] for doc in docs_buffer]
+    doc_ids = [doc["doc_id"] for doc in docs_buffer]
+
+    # Extract embeddings
+    embeddings = np.array(
+        model.encode(
+            texts, batch_size=batch_size, convert_to_numpy=True, show_progress_bar=True
+        )
+    )
+
+    # Save chunk embeddings
+    embeddings_file = f"msmarco_chunk_{chunk_num}_embeddings.npy"
+    docids_file = f"msmarco_chunk_{chunk_num}_docids.npy"
+
+    os.makedirs("embedding/embeddings", exist_ok=True)
+    np.save(f"embedding/embeddings/{docids_file}", np.array(doc_ids))
+    np.save(f"embedding/embeddings/{embeddings_file}", embeddings)
+
+    logger.info(f"Saved chunk {chunk_num}: {embeddings_file}, {docids_file}")
+
+    # Check memory usage after processing the chunk
+    process = psutil.Process(os.getpid())
+    memory_usage = process.memory_info().rss / (1024 * 1024)
+    logger.info(
+        f"Memory usage after processing chunk {chunk_num}: {memory_usage:.2f} MB"
+    )
+
+
+def combine_chunks():
+    """Combine all chunked embeddings into a single file."""
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler("msmarco_refactor.log")],
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("Starting MS MARCO embedding chunk combination...")
+
+    # Find all chunk files
+    embeddings_files = sorted(
+        glob.glob("embedding/embeddings/msmarco_chunk_*_embeddings.npy")
+    )
+    docids_files = sorted(glob.glob("embedding/embeddings/msmarco_chunk_*_docids.npy"))
+
+    logger.info(f"Found {len(embeddings_files)} chunk files to combine.")
+
+    # Combine embeddings and doc_ids
+    all_embeddings = []
+    all_doc_ids = []
+
+    for emb_file, docid_file in zip(embeddings_files, docids_files):
+        embeddings = np.load(emb_file)
+        doc_ids = np.load(docid_file)
+
+        all_embeddings.append(embeddings)
+        all_doc_ids.append(doc_ids)
+
+    # Save combined files
+    combined_embeddings = np.vstack(all_embeddings)
+    combined_doc_ids = np.array(all_doc_ids)
+
+    logger.info("Saving combined embeddings and document IDs...")
+    np.save("embedding/embeddings/msmarco_combined_embeddings.npy", combined_embeddings)
+    np.save("embedding/embeddings/msmarco_combined_docids.npy", combined_doc_ids)
+
+
 if __name__ == "__main__":
-    main(max_docs=1000000)  # Adjust max_docs as needed
+    # main(max_docs=1000000)  # Adjust max_docs as needed
+
+    # Process in batches to avoid memory issues
+    process_in_batches(chunk_size=50000)
+
+    # Combine all chunked embeddings into a single file
+    combine_chunks()
+    print("MS MARCO embedding process completed.")
