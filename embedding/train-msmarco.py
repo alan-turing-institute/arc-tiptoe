@@ -1,17 +1,20 @@
-import os
+# import os
 import pickle
 import sys
-import time
 
 import jsonargparse
 import numpy
-import torch
-import torch.backends
-import torch.backends.mps
-from config import *
+
+# import torch
+# import torch.backends
+# import torch.backends.mps
+from config import SEQ_LEN
 
 # from datasets import Dataset, load_dataset, load_from_disk
 from sentence_transformers import SentenceTransformer
+
+# import time
+
 
 NTHREADS = 1
 # NTHREADS = max(1, multiprocessing.cpu_count() - 1)
@@ -71,4 +74,9 @@ def main(idx: int, file_prefix: str):
 
 
 if __name__ == "__main__":
+    jsonargparse.auto_cli(main)
+    jsonargparse.auto_cli(main)
+
+if __name__ == "__main__":
+    jsonargparse.auto_cli(main)
     jsonargparse.auto_cli(main)

@@ -1,21 +1,16 @@
 package database
 
 import (
-  "fmt"
-)
+	"fmt"
 
-import (
-  "github.com/henrycg/simplepir/pir"
-  "github.com/henrycg/simplepir/lwe"
-  "github.com/henrycg/simplepir/rand"
-  "github.com/henrycg/simplepir/matrix"
-)
-
-import (
-  "github.com/ahenzinger/tiptoe/search/utils"
-  "github.com/ahenzinger/tiptoe/search/corpus"
-  "github.com/ahenzinger/tiptoe/search/config"
-  "github.com/ahenzinger/tiptoe/search/packing"
+	"github.com/ahenzinger/tiptoe/search/config"
+	"github.com/ahenzinger/tiptoe/search/corpus"
+	"github.com/ahenzinger/tiptoe/search/packing"
+	"github.com/ahenzinger/tiptoe/search/utils"
+	"github.com/henrycg/simplepir/lwe"
+	"github.com/henrycg/simplepir/matrix"
+	"github.com/henrycg/simplepir/pir"
+	"github.com/henrycg/simplepir/rand"
 )
 
 func BuildUrlsDatabase(c *corpus.Corpus, seed *rand.PRGKey, 

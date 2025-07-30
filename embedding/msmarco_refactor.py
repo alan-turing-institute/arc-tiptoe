@@ -3,11 +3,13 @@ Refactoring the MS MARCO embedding code to improve readability and maintainabili
 including using the huggingface datasets library for data handling.
 """
 
+import logging
 import os
 
 import ir_datasets
 import numpy as np
 import psutil
+import torch
 from config import SEQ_LEN
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer
@@ -43,22 +45,26 @@ def chunk_text(text: str, seq_len: int = SEQ_LEN) -> str:
 
 
 def extract_embeddings(
-    texts: list[str],
-    doc_ids: list[str],
+    texts,
+    doc_ids,
     model_name: str = "msmarco-distilbert-base-tas-b",
-) -> tuple[np.ndarray, list[str]]:
+):
     """Extract embeddings from the dataset using a specified model."""
-    # Disable tokenizers parallelism to avoid multiprocessing issues
-    import os
-
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-    model = SentenceTransformer(model_name)
+    # Use GPU if available
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    model = SentenceTransformer(model_name, device=device)
+
+    # Increase batch size for GPU
+    batch_size = 128 if device == "cuda" else 32
 
     # Process in smaller batches to avoid memory issues
     embeddings = np.array(
         model.encode(
-            texts, batch_size=16, convert_to_numpy=True, show_progress_bar=True
+            texts, batch_size=batch_size, convert_to_numpy=True, show_progress_bar=True
         )
     )
 
@@ -93,9 +99,19 @@ def process_embeddings(
 
 def main(max_docs: int = None):
     """Main function"""
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler("msmarco_refactor.log")],
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("Starting MS MARCO embedding process...")
+
+    # Check memory usage before loading the dataset
     process = psutil.Process(os.getpid())
     memory_usage = process.memory_info().rss / (1024 * 1024)  # in MB
-    print(f"Memory usage before loading dataset: {memory_usage:.2f} MB")
+    logger.info("Memory usage before loading dataset: %.2f MB", memory_usage)
 
     # Load the dataset
     hf_dataset = load_msmarco_dataset(max_docs=max_docs)
