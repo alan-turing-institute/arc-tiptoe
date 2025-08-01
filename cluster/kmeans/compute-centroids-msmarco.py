@@ -28,20 +28,20 @@ def main():
 
     # Load the embeddings from the file
     # url_file = "/work/edauterman/private-search/code/embedding/embeddings_msmarco/msmarco_url.npy"
-    embed_file = "/work/edauterman/private-search/code/embedding/embeddings_msmarco/msmarco_embeddings.npy"
+    embed_file = "embedding/embeddings/msmarco_combined_embeddings.npy"
 
     centroids_file = "clustering/centroids/msmarco_centroids.npy"
 
     data = np.load(embed_file)
-    print("Loaded")
-    print(data)
+    logging.info("Loaded embeddings from %s", embed_file)
+    logging.info("Data shape: %s", data.shape)
     kmeans = faiss.Kmeans(DIM, NUM_CLUSTERS, verbose=True, nredo=3)
     kmeans.train(data.astype(np.float32))
     centroids = kmeans.centroids
-    print(centroids)
+    logging.info("Centroids shape: %s", centroids.shape)
     np.savetxt(centroids_file, centroids)
 
-    print("Finished kmeans find centroids")
+    logging.info("Finished kmeans find centroids")
 
 
 if __name__ == "__main__":
