@@ -157,12 +157,17 @@ def process_in_batches(chunk_size: int = 50000):
     # Initialise model once
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    if device == "cpu":
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
     model = SentenceTransformer("msmarco-distilbert-base-tas-b", device=device)
-    batch_size = 128 if device == "cuda" else 32
+    batch_size = 256 if device in ("cuda", "mps") else 32
 
-    logger.info(f"Using device: {device}, batch size: {batch_size}")
+    logger.info("Using device: %s, batch size: %d", device, batch_size)
 
     # Process the dataset in chunks
+    total_chunks = 3123835 / chunk_size
+    logger.info("Total chunks to process: %d", total_chunks)
+
     chunk_num = 0
     docs_buffer = []
 
@@ -187,7 +192,7 @@ def process_in_batches(chunk_size: int = 50000):
     if docs_buffer:
         process_chunk(docs_buffer, model, batch_size, chunk_num, logger)
 
-    logger.info(f"completed processing {chunk_num + 1} chunks of documents.")
+    logger.info("completed processing %d chunks of documents.", chunk_num + 1)
 
 
 def process_chunk(docs_buffer, model, batch_size, chunk_num, logger):
@@ -240,7 +245,7 @@ def combine_chunks():
     )
     docids_files = sorted(glob.glob("embedding/embeddings/msmarco_chunk_*_docids.npy"))
 
-    logger.info(f"Found {len(embeddings_files)} chunk files to combine.")
+    logger.info("Found %d chunk files to combine.", len(embeddings_files))
 
     # Combine embeddings and doc_ids
     all_embeddings = []
@@ -251,7 +256,7 @@ def combine_chunks():
         doc_ids = np.load(docid_file)
 
         all_embeddings.append(embeddings)
-        all_doc_ids.append(doc_ids)
+        all_doc_ids.extend(doc_ids)
 
     # Save combined files
     combined_embeddings = np.vstack(all_embeddings)
@@ -266,7 +271,7 @@ if __name__ == "__main__":
     # main(max_docs=1000000)  # Adjust max_docs as needed
 
     # Process in batches to avoid memory issues
-    process_in_batches(chunk_size=50000)
+    # process_in_batches(chunk_size=100000)
 
     # Combine all chunked embeddings into a single file
     combine_chunks()

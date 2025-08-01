@@ -1,3 +1,5 @@
 .env
 data/
 scratch/
+*.log
+azureuser*
