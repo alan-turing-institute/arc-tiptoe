@@ -1,30 +1,10 @@
-# import concurrent.futures
-# import csv
-# import glob
-# import gzip
+"""Dimensionality reduction for clustering assignments using PCA."""
+
 import logging
 import os
 
-# import numpy
 import numpy as np
-
-# import torch
 from pca import transform_embeddings
-
-# import random
-# import re
-# import sys
-
-# from sentence_transformers import (
-#     InputExample,
-#     LoggingHandler,
-#     SentenceTransformer,
-#     evaluation,
-#     models,
-#     util,
-# )
-# from sklearn.decomposition import PCA
-# from sklearn.preprocessing import normalize
 
 # New size for the embeddings
 NUM_CLUSTERS = 1280

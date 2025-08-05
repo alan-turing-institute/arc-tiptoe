@@ -1,27 +1,8 @@
-import logging
-import os
+"""PCA methods for dimensionality reduction."""
 
 import numpy as np
 from sklearn.decomposition import PCA
 
-# from sentence_transformers import SentenceTransformer, LoggingHandler, util, evaluation, models, InputExample
-# from sklearn.preprocessing import normalize
-# import logging
-# import os
-# import gzip
-# import csv
-# import random
-# import numpy as np
-# import torch
-# import numpy
-# import sys
-# import glob
-# import re
-# import concurrent.futures
-
-# New size for the embeddings
-# NEW_DIM = 256
-# NEW_DIM = 256
 NEW_DIM = 192
 NUM_CLUSTERS = 1280
 PCA_COMPONENTS_FILE = f"/dim_reduce/dim_reduced/pca_{NEW_DIM}.npy"
