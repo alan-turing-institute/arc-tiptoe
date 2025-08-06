@@ -8,11 +8,12 @@ import re
 
 import numpy as np
 from pca import transform_embeddings
+from tqdm import tqdm
 
 # New size for the embeddings
 NEW_DIM = 192
-PCA_COMPONENTS_FILE = f"dim_reduce_dim_reduced/pca_{NEW_DIM}.npy"
-DIRECTORY = "clustering/assignments/"
+PCA_COMPONENTS_FILE = f"dim_reduce/dim_reduced/pca_{NEW_DIM}.npy"
+DIRECTORY = "clustering/clusters/"
 OUT_DIRECTORY = f"clustering/dim_red_assignments/pca_{NEW_DIM}/"
 
 
@@ -56,7 +57,7 @@ def main():
         return
     logging.info("Starting to transform embeddings...")
     with cf.ThreadPoolExecutor(max_workers=32) as executor:
-        for f in files:
+        for f in tqdm(files, desc="Transforming embeddings"):
             executor.submit(
                 transform_embeddings,
                 pca_components,
