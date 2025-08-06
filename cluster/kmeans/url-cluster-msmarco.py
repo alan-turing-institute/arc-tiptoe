@@ -197,14 +197,6 @@ def main():
     # ctr = 0
     for i in range(len(cluster_files)):
         process_cluster(cluster_files[i], i)
-    """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future_to_assignment = [executor.submit(process_cluster, cluster_files[i], i) for i in range(len(cluster_files))]
-        for i, future in enumerate(concurrent.futures.as_completed(future_to_assignment)):
-            print("Finished %d/%d" % (ctr, len(cluster_files)))
-            ctr += 1
-            future.result()
-    """
 
 
 if __name__ == "__main__":
