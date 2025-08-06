@@ -1,11 +1,13 @@
 """PCA methods for dimensionality reduction."""
 
+import os
+
 import numpy as np
 from sklearn.decomposition import PCA
 
 NEW_DIM = 192
 NUM_CLUSTERS = 1280
-PCA_COMPONENTS_FILE = f"/dim_reduce/dim_reduced/pca_{NEW_DIM}.npy"
+PCA_COMPONENTS_FILE = f"dim_reduce/dim_reduced/pca_{NEW_DIM}.npy"
 
 
 def train_pca(train_vecs):
@@ -59,6 +61,10 @@ def transform_embeddings(pca_components, in_file, out_file, logger=None):
         )
     in_embeddings = [adjust_precision(embed) for embed in in_embeddings]
     out_embeddings = run_pca(pca_components, in_embeddings)
+
+    # create file to write to
+    if not os.path.exists(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file))
     with open(out_file, "w", encoding="utf-8") as f:
         lines = [
             f"{docids[i]} | {','.join([str(ch) for ch in out_embeddings[i]])} | {urls[i].strip()}\n"
@@ -70,4 +76,5 @@ def transform_embeddings(pca_components, in_file, out_file, logger=None):
             )
         else:
             print(f"Writing {len(out_embeddings)} transformed embeddings to {out_file}")
+        f.write("".join(lines))
         f.write("".join(lines))
