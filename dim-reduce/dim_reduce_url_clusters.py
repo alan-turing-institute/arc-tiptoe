@@ -1,42 +1,76 @@
-from sklearn.decomposition import PCA
-from sentence_transformers import SentenceTransformer, LoggingHandler, util, evaluation, models, InputExample
-from sklearn.preprocessing import normalize
+"""Script to perform PCA on URL clusters and save the transformed embeddings."""
+
+import concurrent.futures as cf
+import glob
 import logging
 import os
-import gzip
-import csv
-import random
-import numpy as np
-import torch
-import numpy
-import sys
-import glob
 import re
-import concurrent.futures
-from pca import *
 
-#New size for the embeddings
-PCA_COMPONENTS_FILE = ("/work/edauterman/pca_%d.npy" % (NEW_DIM))
-DIRECTORY = "/work/edauterman/test_boundary_url_bundles_2_dotprod/"
-OUT_DIRECTORY = "/work/edauterman/test_boundary_url_bundles_2_dotprod_pca_192/"
+import numpy as np
+from pca import transform_embeddings
 
-pca_components = numpy.load(PCA_COMPONENTS_FILE)
+# New size for the embeddings
+NEW_DIM = 192
+PCA_COMPONENTS_FILE = f"dim_reduce_dim_reduced/pca_{NEW_DIM}.npy"
+DIRECTORY = "clustering/assignments/"
+OUT_DIRECTORY = f"clustering/dim_red_assignments/pca_{NEW_DIM}/"
 
-directories = glob.glob("%s/*" % DIRECTORY)
-files = []
-if not os.path.exists(OUT_DIRECTORY):
-    os.mkdir(OUT_DIRECTORY)
-print(directories)
-for directory in directories:
-    print(directory)
-    files += glob.glob("%s/clusters/*" % directory)
-    if not os.path.exists(re.sub(r'%s' % DIRECTORY, r'%s' % OUT_DIRECTORY, directory)):
-        os.mkdir(re.sub(r'%s' % DIRECTORY, r'%s' % OUT_DIRECTORY, directory))
 
-    if not os.path.exists(re.sub(r'%s' % DIRECTORY, r'%s' % OUT_DIRECTORY, "%s/clusters" % directory)):
-        os.mkdir(re.sub(r'%s' % DIRECTORY, r'%s' % OUT_DIRECTORY, "%s/clusters" % directory))
+def main():
+    """Main function to execute the PCA transformation on URL clusters."""
+    logging.basicConfig(
+        format="%(asctime)s - %(message)s",
+        level=logging.INFO,
+        handlers=[logging.StreamHandler()],
+    )
+    logging.info("Starting PCA transformation...")
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-    for i,f in enumerate(files):
-        executor.submit(transform_embeddings, pca_components, f, re.sub(r'%s' % DIRECTORY, r'%s' % OUT_DIRECTORY, f))
+    if not os.path.exists(PCA_COMPONENTS_FILE):
+        raise FileNotFoundError(f"PCA components file not found: {PCA_COMPONENTS_FILE}")
 
+    logging.info("Loading PCA components from %s", PCA_COMPONENTS_FILE)
+    pca_components = np.load(PCA_COMPONENTS_FILE)
+
+    directories = glob.glob(f"{DIRECTORY}/*")
+
+    files = []
+    if not os.path.exists(OUT_DIRECTORY):
+        os.mkdir(OUT_DIRECTORY)
+    logging.info("Found directories: %s", directories)
+    for directory in directories:
+        logging.info("Processing directory: %s", directory)
+        files += glob.glob(f"{directory}/clusters/*")
+        if not os.path.exists(re.sub(f"{DIRECTORY}", f"{OUT_DIRECTORY}", directory)):
+            os.mkdir(re.sub(f"{DIRECTORY}", f"{OUT_DIRECTORY}", directory))
+
+        if not os.path.exists(
+            re.sub(f"{DIRECTORY}", f"{OUT_DIRECTORY}", f"{directory}/clusters")
+        ):
+            os.mkdir(
+                re.sub(f"{DIRECTORY}", f"{OUT_DIRECTORY}", f"{directory}/clusters")
+            )
+    logging.info("Found files: %s", files)
+    logging.info("Total files to process: %d", len(files))
+    if not files:
+        logging.warning("No files found to process.")
+        return
+    logging.info("Starting to transform embeddings...")
+    with cf.ThreadPoolExecutor(max_workers=32) as executor:
+        for f in files:
+            executor.submit(
+                transform_embeddings,
+                pca_components,
+                f,
+                re.sub(f"{DIRECTORY}", f"{OUT_DIRECTORY}", f),
+            )
+
+            executor.submit(
+                transform_embeddings,
+                pca_components,
+                f,
+                re.sub(f"{DIRECTORY}", f"{OUT_DIRECTORY}", f),
+            )
+
+
+if __name__ == "__main__":
+    main()
