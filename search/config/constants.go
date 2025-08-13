@@ -1,7 +1,7 @@
 package config
 
 import (
-  "math"
+	"math"
 )
 
 type Config struct {
@@ -52,7 +52,7 @@ func SLOT_BITS() uint64 {
 
 func (c *Config) TOTAL_NUM_CLUSTERS() int {
   if !c.imageSearch {
-    return 25196
+    return 1280  // Change from 25196 to 1280
   } else {
     return 42528
   }

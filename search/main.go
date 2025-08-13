@@ -1,21 +1,19 @@
 package main
 
 import (
-  "os"
-  "fmt"
-  "flag"
-  "strconv"
-  "runtime/debug"
-)
+	"flag"
+	"fmt"
+	"os"
+	"runtime/debug"
+	"strconv"
 
-import (
-  "github.com/ahenzinger/tiptoe/search/utils"
-  "github.com/ahenzinger/tiptoe/search/config"
-  "github.com/ahenzinger/tiptoe/search/protocol"
+	"github.com/ahenzinger/tiptoe/search/config"
+	"github.com/ahenzinger/tiptoe/search/protocol"
+	"github.com/ahenzinger/tiptoe/search/utils"
 )
 
 // Where the corpus is stored
-var preamble = flag.String("preamble", "/home/ubuntu", "Preamble")
+var preamble = flag.String("preamble", "/home/azureuser", "Preamble")
 
 // Whether or not running image search
 var image_search = flag.Bool("image_search", false, "Image search")
@@ -30,7 +28,7 @@ func main() {
     return
   }
 
-  conf := config.MakeConfig(*preamble + "/data/", *image_search)
+  conf := config.MakeConfig(*preamble + "/data", *image_search)
 
   if os.Args[1] == "client" {
     if len(os.Args) >= 3 {
