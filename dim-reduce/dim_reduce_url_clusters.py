@@ -13,7 +13,7 @@ from tqdm import tqdm
 # New size for the embeddings
 NEW_DIM = 192
 PCA_COMPONENTS_FILE = f"dim_reduce/dim_reduced/pca_{NEW_DIM}.npy"
-DIRECTORY = "clustering/clusters/"
+DIRECTORY = "clustering/assignments/"
 OUT_DIRECTORY = f"clustering/dim_red_assignments/pca_{NEW_DIM}/"
 
 

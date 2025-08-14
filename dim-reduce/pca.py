@@ -66,15 +66,16 @@ def transform_embeddings(pca_components, in_file, out_file, logger=None):
     if not os.path.exists(os.path.dirname(out_file)):
         os.makedirs(os.path.dirname(out_file))
     with open(out_file, "w", encoding="utf-8") as f:
-        lines = [
-            f"{docids[i]} | {','.join([str(ch) for ch in out_embeddings[i]])} | {urls[i].strip()}\n"
-            for i in range(len(out_embeddings))
-        ]
+        lines = []
+        # convert to integers
+        for i in range(len(out_embeddings)):
+            embed_str = ",".join([str(int(ch)) for ch in out_embeddings[i]])
+            line = f"{docids[i]} | {embed_str} | {urls[i].strip()}\n"
+            lines.append(line)
         if logger:
             logger.info(
                 "Writing %d transformed embeddings to %s", len(out_embeddings), out_file
             )
         else:
             print(f"Writing {len(out_embeddings)} transformed embeddings to {out_file}")
-        f.write("".join(lines))
         f.write("".join(lines))
