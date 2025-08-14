@@ -14,7 +14,7 @@ from tqdm import tqdm
 NEW_DIM = 192
 PCA_COMPONENTS_FILE = f"dim_reduce/dim_reduced/pca_{NEW_DIM}.npy"
 DIRECTORY = "clustering/clusters/"
-OUT_DIRECTORY = f"clustering/dim_red_assignments/pca_{NEW_DIM}/urls/"
+OUT_DIRECTORY = f"clustering/dim_red_assignments/pca_{NEW_DIM}/urls"
 
 
 def main():
