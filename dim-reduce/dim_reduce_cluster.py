@@ -27,7 +27,7 @@ def main():
     # Transform each cluster's embeddings
     for i in range(NUM_CLUSTERS):
         input_file = f"clustering/assignments/msmarco_cluster_{i}.txt"
-        output_file = f"clustering/dim_red_assigments/pca_192/cluster_{i}.txt"
+        output_file = f"clustering/dim_red_assignments/pca_192/cluster_{i}.txt"
 
         if not os.path.exists(output_file):
             logger.info("Transforming embeddings for cluster %d", i)

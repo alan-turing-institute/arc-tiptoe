@@ -23,7 +23,7 @@ func printUsage() {
 }
 
 func main() {
-  coordinatorIP := "0.0.0.0"
+  coordinatorIP := "127.0.0.1"
   if len(os.Args) < 2 {
     return
   }

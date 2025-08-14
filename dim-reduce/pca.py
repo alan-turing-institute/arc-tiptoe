@@ -19,7 +19,9 @@ def train_pca(train_vecs):
 
 def run_pca(pca_components, vecs):
     """Run PCA on the provided vectors using the given components."""
-    return np.clip(np.round(np.matmul(vecs, pca_components) / 10), -16, 15)
+    return np.clip(np.round(np.matmul(vecs, pca_components) / 10), -16, 15).astype(
+        np.int8
+    )
 
 
 def adjust_precision(vec):
