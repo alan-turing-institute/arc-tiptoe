@@ -1,9 +1,9 @@
-import sys
+import json
 import re
 import statistics
-import numpy
-import json
+import sys
 
+import numpy
 from mrr import *
 
 
@@ -17,14 +17,21 @@ def main():
 
     obj = dict()
     real = read_ranked_qrel(qrels_file)
-    obj['basic'] = compute_mrr(read_top_results(basic_file), real)
-    obj['basic_url_random'] = compute_mrr(read_top_results(basic_url_random_file), real)
-    obj['basic_url_cluster'] = compute_mrr(read_top_results(basic_url_cluster_file), real)
-    obj['boundary_url_cluster'] = compute_mrr(read_top_results(boundary_url_cluster_file), real)
-    obj['boundary_url_cluster_pca'] = compute_mrr(read_top_results(boundary_url_cluster_pca_file), real)
-    
-    with open(sys.argv[7], 'w') as f:
+    obj["basic"] = compute_mrr(read_top_results(basic_file), real)
+    obj["basic_url_random"] = compute_mrr(read_top_results(basic_url_random_file), real)
+    obj["basic_url_cluster"] = compute_mrr(
+        read_top_results(basic_url_cluster_file), real
+    )
+    obj["boundary_url_cluster"] = compute_mrr(
+        read_top_results(boundary_url_cluster_file), real
+    )
+    obj["boundary_url_cluster_pca"] = compute_mrr(
+        read_top_results(boundary_url_cluster_pca_file), real
+    )
+
+    with open(sys.argv[7], "w") as f:
         json.dump(obj, f)
+
 
 if __name__ == "__main__":
     main()
