@@ -12,10 +12,13 @@ import ir_datasets
 import numpy as np
 import psutil
 import torch
-from config import SEQ_LEN
+
+# from config import SEQ_LEN
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+
+SEQ_LEN = 512
 
 
 def load_msmarco_dataset(max_docs: int = None) -> Dataset:
