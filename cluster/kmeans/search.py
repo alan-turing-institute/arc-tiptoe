@@ -1,99 +1,120 @@
-import concurrent.futures
+"""Search quality experiment script"""
+
+# import concurrent.futures
 import glob
 import json
 import multiprocessing
+import os
 import sys
 import threading
-from random import shuffle
 
 import faiss
 import numpy
 import requests
 
-# import clip
-import torch
-from PIL import Image
+# from PIL import Image
 from sentence_transformers import SentenceTransformer
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import normalize
-from transformers import CLIPModel, CLIPProcessor, CLIPTokenizer
+
+# from sklearn.decomposition import PCA
+# from sklearn.preprocessing import normalize
+# from transformers import CLIPModel, CLIPProcessor, CLIPTokenizer
+
+# import clip
+# import torch
+
+
+# from random import shuffle
+
 
 MODEL_NAME = "msmarco-distilbert-base-tas-b"
 NUM_CLUSTERS = 1
 
-centroids_file = "/home/ubuntu/boundary_clusters/centroids_new.npy"
-PCA_COMPONENTS_FILE = "/home/ubuntu/pca_384.npy"
-QUERY_FILE = "/home/ubuntu/msmarco/msmarco-docdev-queries.tsv"
-CLUSTER_FILE_LOCATION = "/home/ubuntu/boundary_clusters_pca_384/"
-URL_BUNDLE_BASE_DIR = "/home/ubuntu/boundary_clusters_url_cluster2_pca_384/"
+# Default values - will be overridden by config
+CENTROIDS_FILE = None
+PCA_COMPONENTS_FILE = None
+QUERY_FILE = None
+CLUSTER_FILE_LOCATION = None
+URL_BUNDLE_BASE_DIR = None
 IS_TEXT = True
 RUN_PCA = True
 RUN_URL_FILTER = True
 URL_FILTER_BY_CLUSTER = False
-URL_BUNDLE_BASE_DIR = "/home/ubuntu/basic_clusters_url_random/"
 RUN_MSMARCO_DEV_QUERIES = True
 FILTER_BADWORDS = False
-INDEX_FILE = "/home/ubuntu/boundary_clusters/index_old.faiss"
-# tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-# clip_model, _ = clip.load('ViT-B/32', 'cpu', jit=False)
-INDEX_FILE = "/home/ubuntu/text_centroids/index.faiss"
-BADWORDS_FILE = "/home/ubuntu/badwords"
+INDEX_FILE = None
+BADWORDS_FILE = None
 SHORT_EXP = False
+IMG_RESULTS_DIR = None
 
 lock = threading.Lock()
 
 
 def load_config(config_file):
-    with open(config_file, "r") as f:
+    """Load configuration from a JSON file."""
+    with open(config_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-    global PCA_COMPONENTS_FILE
-    PCA_COMPONENTS_FILE = data["pca_components_file"]
-    global QUERY_FILE
-    QUERY_FILE = data["query_file"]
-    global CLUSTER_FILE_LOCATION
-    CLUSTER_FILE_LOCATION = data["cluster_file_location"]
-    global URL_BUNDLE_BASE_DIR
-    URL_BUNDLE_BASE_DIR = data["url_bundle_base_dir"]
-    global IS_TEXT
-    IS_TEXT = data["is_text"]
-    global RUN_PCA
-    RUN_PCA = data["run_pca"]
-    global RUN_URL_FILTER
-    RUN_URL_FILTER = data["run_url_filter"]
-    global URL_FILTER_BY_CLUSTER
-    URL_FILTER_BY_CLUSTER = data["url_filter_by_cluster"]
-    global RUN_MSMARCO_DEV_QUERIES
-    RUN_MSMARCO_DEV_QUERIES = data["run_msmarco_dev_queries"]
-    global FILTER_BADWORDS
-    FILTER_BADWORDS = data["filter_badwords"]
-    global INDEX_FILE
-    INDEX_FILE = data["index_file"]
-    global SHORT_EXP
-    SHORT_EXP = data["short_exp"]
-    with open(INDEX_FILE, "r") as f:
-        global index
-        index = faiss.read_index(INDEX_FILE)
+
+    # Set default values for optional fields
+    config = {
+        "PCA_COMPONENTS_FILE": data.get("pca_components_file"),
+        "QUERY_FILE": data.get("query_file"),
+        "CLUSTER_FILE_LOCATION": data.get("cluster_file_location"),
+        "URL_BUNDLE_BASE_DIR": data.get("url_bundle_base_dir", ""),
+        "IS_TEXT": data.get("is_text", True),
+        "RUN_PCA": data.get("run_pca", True),
+        "RUN_URL_FILTER": data.get("run_url_filter", False),
+        "URL_FILTER_BY_CLUSTER": data.get("url_filter_by_cluster", False),
+        "RUN_MSMARCO_DEV_QUERIES": data.get("run_msmarco_dev_queries", True),
+        "FILTER_BADWORDS": data.get("filter_badwords", False),
+        "INDEX_FILE": data.get("index_file"),
+        "SHORT_EXP": data.get("short_exp", False),
+        "BADWORDS_FILE": data.get("badwords_file", None),
+        "IMG_RESULTS_DIR": data.get("img_results_dir", "/tmp/img_res"),
+    }
+
+    # Create image results directory if it doesn't exist
+    if config["IMG_RESULTS_DIR"]:
+        os.makedirs(config["IMG_RESULTS_DIR"], exist_ok=True)
+
+    # Load FAISS index
+    if config["INDEX_FILE"] and os.path.exists(config["INDEX_FILE"]):
+        index = faiss.read_index(config["INDEX_FILE"])
+        config["index"] = index
+    else:
+        print(f"Warning: Index file not found: {config['INDEX_FILE']}", file=sys.stderr)
+        config["index"] = None
+
+    return config
 
 
-def find_nearest_clusters_from_faiss(query_embed):
+def find_nearest_clusters_from_faiss(query_embed, config):
+    """Find the nearest clusters using a FAISS index."""
     query_float = numpy.array(query_embed).astype("float32")
-    _, results = index.search(query_float, 1)
+
+    if config["index"] is None:
+        print("Error: No FAISS index loaded", file=sys.stderr)
+        return [0]  # Default to cluster 0
+
+    _, results = config["index"].search(query_float, 1)
     return results[0]
 
 
 def embed(query):
-    if IS_TEXT:
-        return SentenceTransformer(MODEL_NAME).encode(query)
-    else:
-        inputs = torch.cat([clip.tokenize(query)])
-        outputs = clip_model.encode_text(inputs)
-        return normalize([outputs[0].detach().numpy()], axis=1, norm="l2")[0]
+    """Embed a query using the appropriate model."""
+    return SentenceTransformer(MODEL_NAME).encode(query)
 
 
-def find_nearest_clusters_from_file(query_embed):
+def find_nearest_clusters_from_file(query_embed, config):
+    """Find the nearest clusters from a file."""
+    if not config.get("CENTROIDS_FILE") or not os.path.exists(config["CENTROIDS_FILE"]):
+        print(
+            f"Error: Centroids file not found: {config.get('CENTROIDS_FILE')}",
+            file=sys.stderr,
+        )
+        return [0]
+
     query_float = numpy.array(query_embed).astype("float32")
-
-    centroids = numpy.loadtxt(centroids_file)
+    centroids = numpy.loadtxt(config["CENTROIDS_FILE"])
     centroids = numpy.round((centroids) * (1 << 5))
 
     distances = numpy.asarray(
@@ -106,21 +127,25 @@ def find_nearest_clusters_from_file(query_embed):
 
 
 def find_nearest_clusters(cluster_index, query_embed, num_clusters):
+    """Find the nearest clusters."""
     query_float = numpy.array(query_embed).astype("float32")
     results = cluster_index.search(query_float, num_clusters)
-    # for i in range(len(results[0][0])):
-    #    print("dist: %d id: %d" % (results[0][0][i], results[1][0][i]))
     return results[1][0]
 
 
-def get_results_url_chunks(top_res, query_embed, cluster, num_results):
-    cluster_file_name = "%s/cluster_%d.txt" % (CLUSTER_FILE_LOCATION, cluster)
-    with open(cluster_file_name, "r") as f:
-        # all_lines = [line for line in f.readlines()]
+def get_results_url_chunks(top_res, query_embed, cluster, num_results, config):
+    """Get the URL chunks for the top results."""
+    cluster_file_name = f"{config['CLUSTER_FILE_LOCATION']}/cluster_{cluster}.txt"
+
+    if not os.path.exists(cluster_file_name):
+        print(f"Warning: Cluster file not found: {cluster_file_name}", file=sys.stderr)
+        return []
+
+    with open(cluster_file_name, "r", encoding="utf-8") as f:
         lines = [line for line in f.readlines() if line.strip()]
     if len(lines) == 0:
         return []
-    chunk = list()
+    chunk = []
     matches = False
     done = False
     for line in lines:
@@ -138,13 +163,20 @@ def get_results_url_chunks(top_res, query_embed, cluster, num_results):
     return find_best_docs_from_lines(chunk, query_embed, num_results)
 
 
-def filter_results_by_url_bundle(top_res, query_embed, cluster, num_results):
-    print("%s/%d/clusters" % (URL_BUNDLE_BASE_DIR, cluster), file=sys.stderr)
-    bundle_files = glob.glob("%s/%d/clusters/*" % (URL_BUNDLE_BASE_DIR, cluster))
+def filter_results_by_url_bundle(top_res, query_embed, cluster, num_results, config):
+    """Filter results by url bundle"""
+    bundle_dir = f"{config['URL_BUNDLE_BASE_DIR']}/{cluster}/clusters"
+    print(f"{bundle_dir}", file=sys.stderr)
+
+    if not os.path.exists(bundle_dir):
+        print(f"Warning: Bundle directory not found: {bundle_dir}", file=sys.stderr)
+        return []
+
+    bundle_files = glob.glob(f"{bundle_dir}/*")
     for bundle_file in bundle_files:
-        with open(bundle_file, "r") as f:
+        with open(bundle_file, "r", encoding="utf-8") as f:
             print(
-                "Checking %s for %s" % (bundle_file, top_res["url"].strip()),
+                f"Checking {bundle_file} for {top_res['url'].strip()}",
                 file=sys.stderr,
             )
             lines = [line for line in f.readlines() if line.strip()]
@@ -159,14 +191,12 @@ def filter_results_by_url_bundle(top_res, query_embed, cluster, num_results):
                 out = list(zip(*out))
                 urls = out[0]
                 dists = out[1]
-                print("[%s] Parsed" % bundle_file, file=sys.stderr)
+                print(f"[{bundle_file}] Parsed", file=sys.stderr)
 
                 res_ids = find_nearest_docs(dists, num_results)
-                print("[%s] Found nearest" % bundle_file, file=sys.stderr)
+                print(f"[{bundle_file}] Found nearest", file=sys.stderr)
 
-                ret = list(
-                    map(lambda rid: {"score": dists[rid], "url": urls[rid]}, res_ids)
-                )
+                ret = [{"score": dists[rid], "url": urls[rid]} for rid in res_ids]
                 return ret
 
     print("ERROR: NO MATCH", file=sys.stderr)
@@ -174,10 +204,11 @@ def filter_results_by_url_bundle(top_res, query_embed, cluster, num_results):
 
 
 def find_nearest_docs(dists, how_many):
+    """Find the nearest documents based on distance."""
     res = None
-    l = 1 if numpy.isscalar(dists) else len(dists)
-    if l <= how_many:
-        return range(l)
+    length = 1 if numpy.isscalar(dists) else len(dists)
+    if length <= how_many:
+        return range(length)
     # Get indexes of top-k
     res = numpy.argpartition(dists, -how_many, axis=0)
 
@@ -187,13 +218,13 @@ def find_nearest_docs(dists, how_many):
 
 
 def line_to_dist(line, query_embed):
-    (docid, rest) = line.split(" | ", 1)
-    # print(len(query_embed))
+    """Line to distance."""
+    (_, rest) = line.split(" | ", 1)
     parts = rest.split(",", len(query_embed) - 1)
-    embed = parts[0 : len(query_embed) - 1]
+    embed_vec = parts[0 : len(query_embed) - 1]
     (last, url) = parts[len(query_embed) - 1].split(" | ", 1)
-    embed.append(last)
-    vec = [float(i) for i in embed]
+    embed_vec.append(last)
+    vec = [float(i) for i in embed_vec]
     if RUN_MSMARCO_DEV_QUERIES and not RUN_PCA:
         vec = numpy.clip(numpy.round(numpy.array(vec) * (1 << 5)), -16, 15)
 
@@ -201,6 +232,7 @@ def line_to_dist(line, query_embed):
 
 
 def find_best_docs_from_lines(lines, query_embed, num_results):
+    """Find best docs from the lines"""
     pool = multiprocessing.pool.ThreadPool()
     out = pool.map(lambda x: line_to_dist(x, query_embed), lines)
     out = list(zip(*out))
@@ -213,9 +245,13 @@ def find_best_docs_from_lines(lines, query_embed, num_results):
 
 
 def find_best_docs(cluster_file_name, query_embed, num_results):
-    print("[%s] Starting read" % cluster_file_name, file=sys.stderr)
-    with open(cluster_file_name, "r") as f:
-        # all_lines = [line for line in f.readlines()]
+    """Find the best documents from a cluster file."""
+    if not os.path.exists(cluster_file_name):
+        print(f"Warning: Cluster file not found: {cluster_file_name}", file=sys.stderr)
+        return []
+
+    print(f"[{cluster_file_name}] Starting read", file=sys.stderr)
+    with open(cluster_file_name, "r", encoding="utf-8") as f:
         lines = [
             line
             for line in f.readlines()
@@ -223,69 +259,74 @@ def find_best_docs(cluster_file_name, query_embed, num_results):
         ]
     if len(lines) == 0:
         return []
-    print("[%s] Have lines" % cluster_file_name, file=sys.stderr)
+    print(f"[{cluster_file_name}] Have lines", file=sys.stderr)
     return find_best_docs_from_lines(lines, query_embed, num_results)
 
 
-def find_one(results, i, cluster_id, query_embed, num_results):
-    cluster_file_name = "%s/cluster_%d.txt" % (CLUSTER_FILE_LOCATION, cluster_id)
-    print("Going to find best docs for %s" % cluster_file_name, file=sys.stderr)
+def find_one(results, cluster_id, query_embed, num_results, config):
+    """Find one cluster and its best documents."""
+    cluster_file_name = f"{config['CLUSTER_FILE_LOCATION']}/cluster_{cluster_id}.txt"
+    print(f"Going to find best docs for {cluster_file_name}", file=sys.stderr)
     docs = find_best_docs(cluster_file_name, query_embed, num_results)
     print(docs, file=sys.stderr)
 
     lock.acquire()
     results += docs
     results.sort(key=lambda x: -int(x["score"]))
-    # print("After %d clusters: %d" % (i+1, int(results[0]['score'])), file=sys.stderr)
     lock.release()
 
 
-def search(query, num_results):
+def search(query, num_results, config):
+    """Run search"""
     query_embed = embed(query)
     # Reduce precision to 5 bits
     query_embed = numpy.round(numpy.array(query_embed) * (1 << 5))
     print("\tHave embedding", file=sys.stderr)
 
     query_embed_pca = query_embed
-    if RUN_PCA:
-        pca_components = numpy.load(PCA_COMPONENTS_FILE)
-        if IS_TEXT:
-            query_embed_pca = numpy.clip(
-                numpy.round(numpy.matmul(query_embed, pca_components) / 10), -16, 15
-            )
+    if config["RUN_PCA"] and config["PCA_COMPONENTS_FILE"]:
+        if os.path.exists(config["PCA_COMPONENTS_FILE"]):
+            pca_components = numpy.load(config["PCA_COMPONENTS_FILE"])
+            if config["IS_TEXT"]:
+                query_embed_pca = numpy.clip(
+                    numpy.round(numpy.matmul(query_embed, pca_components) / 10), -16, 15
+                )
+            else:
+                query_embed_pca = numpy.clip(
+                    numpy.round(numpy.matmul(query_embed, pca_components)), -16, 15
+                )
         else:
-            query_embed_pca = numpy.clip(
-                numpy.round(numpy.matmul(query_embed, pca_components)), -16, 15
+            print(
+                f"Warning: PCA components file not found: {config['PCA_COMPONENTS_FILE']}",
+                file=sys.stderr,
             )
     else:
         query_embed_pca = numpy.clip(query_embed_pca, -16, 15)
 
     res = []
-    # clusters = find_nearest_clusters_from_file([query_embed])
-    clusters = find_nearest_clusters_from_faiss([query_embed])
-    print("\tNearest clusters: %s" % clusters, file=sys.stderr)
-    for i, cluster_id in enumerate(clusters):
-        find_one(res, i, cluster_id, query_embed_pca, num_results)
-        if RUN_URL_FILTER and len(res) > 0:
+    clusters = find_nearest_clusters_from_faiss([query_embed], config)
+    print(f"\tNearest clusters: {clusters}", file=sys.stderr)
+    for _, cluster_id in enumerate(clusters):
+        find_one(res, cluster_id, query_embed_pca, num_results, config)
+        if config["RUN_URL_FILTER"] and len(res) > 0:
             res = filter_results_by_url_bundle(
-                res[0], query_embed_pca, cluster_id, num_results
+                res[0], query_embed_pca, cluster_id, num_results, config
             )
-        if URL_FILTER_BY_CLUSTER:
+        if config["URL_FILTER_BY_CLUSTER"]:
             print("filter by cluster", file=sys.stderr)
             res = get_results_url_chunks(
-                res[0]["url"], query_embed_pca, cluster_id, num_results
+                res[0]["url"], query_embed_pca, cluster_id, num_results, config
             )
     return res
 
-    return res
 
-
-def latex_format_queries(query_list, badwords):
+def latex_format_queries(query_list, badwords, config):
+    """Process queries in latex format"""
     for qid, query in enumerate(query_list[:100]):
-        results = search(query, 20)[0:10]
+        results = search(query, 20, config)[0:10]
 
         done = False
-        for i, r in enumerate(results):
+        for _, r in enumerate(results):
             if done:
                 break
             safe = True
@@ -298,27 +339,34 @@ def latex_format_queries(query_list, badwords):
                     img_data = requests.get(
                         url.split(".jpg", 1)[0] + ".jpg", timeout=5
                     ).content
-                    with open(
-                        "/home/ubuntu/img_res/result_%d.jpg" % qid, "wb"
-                    ) as handler:
+
+                    # Use configurable image results directory
+                    img_file = f"{config['IMG_RESULTS_DIR']}/result_{qid}.jpg"
+                    with open(img_file, "wb") as handler:
                         handler.write(img_data)
-                    print(
-                        "\\QueryRes{%s}{fig/img_results/result_%d.jpg}" % (query, qid)
-                    )
+                    print(f"\\QueryRes{{{query}}}{{fig/img_results/result_{qid}.jpg}}")
                     print("")
                     sys.stdout.flush()
                     done = True
-                except:
+                except requests.exceptions.RequestException:
                     print("Trying next...", file=sys.stderr)
         sys.stdout.flush()
 
 
 def main():
+    """Main entry point"""
     config_file = sys.argv[1]
-    load_config(config_file)
+    config = load_config(config_file)
 
-    if RUN_MSMARCO_DEV_QUERIES:
-        lines = open(QUERY_FILE).read().splitlines()
+    if config["RUN_MSMARCO_DEV_QUERIES"]:
+        if not config["QUERY_FILE"] or not os.path.exists(config["QUERY_FILE"]):
+            print(
+                f"Error: Query file not found: {config.get('QUERY_FILE')}",
+                file=sys.stderr,
+            )
+            return
+
+        lines = open(config["QUERY_FILE"], encoding="utf-8").read().splitlines()
         query_data = [line.split("\t") for line in lines]
         query_list = [elem[1] for elem in query_data]
 
@@ -326,52 +374,46 @@ def main():
         for elem in query_data:
             qid_dict[elem[1]] = int(elem[0])
 
-        if FILTER_BADWORDS:
-            with open(BADWORDS_FILE) as f:
-                badwords = set([line.strip() for line in f.readlines()])
+        # Load badwords if enabled and file exists
+        badwords = set()
+        if config["FILTER_BADWORDS"] and config["BADWORDS_FILE"]:
+            if os.path.exists(config["BADWORDS_FILE"]):
+                with open(config["BADWORDS_FILE"], "r", encoding="utf-8") as f:
+                    badwords = set([line.strip() for line in f.readlines()])
+            else:
+                print(
+                    f"Warning: Badwords file not found: {config['BADWORDS_FILE']}",
+                    file=sys.stderr,
+                )
 
-        if SHORT_EXP:
+        if config["SHORT_EXP"]:
             query_list = query_list[:500]
         for query in query_list:
-            print("Query: %s\n" % (qid_dict[query]))
-            # print("Query: %s\n" % (query))
-            # print("\\noindent \\textbf{Query: %s}\n" % (query))
-            results = search(query, 100)[0:100]
-            # print("\\begin{enumerate}")
-            for i, r in enumerate(results):
+            print(f"Query: {qid_dict[query]}\n")
+            results = search(query, 100, config)[0:100]
+            for _, r in enumerate(results):
                 safe = True
                 url = r["url"].strip()
                 url_lower = url.lower()
-                if FILTER_BADWORDS:
+                if config["FILTER_BADWORDS"]:
                     for badword in badwords:
                         if badword in url_lower:
                             safe = False
                 if safe:
-                    print("%d %s" % (r["score"], r["url"].strip()))
+                    print(f"{r['score']} {r['url'].strip()}")
                 else:
                     print("[REDACTED]")
-                # print("\\item \\url{%s}" % (r['url'].strip()))
-            # print("\\end{enumerate}")
             print("---------------\n")
             sys.stdout.flush()
-
-        """
-        for query in query_list[:20]:
-            print("Query: %d %s\n" % (qid_dict[query], query)) 
-            results = search(query, 100)[0:100]
-            for i,r in enumerate(results):
-                print("%d %s" % (r['score'], r['url'].strip()))
-            print("\n----------")
-        """
     else:
         query_list = ["chocolate chip cookie"]
 
         for query in query_list:
-            print("Query: %s\n" % (query))
-            results = search(query, 20)
+            print(f"Query: {query}\n")
+            results = search(query, 20, config)
             print(results, file=sys.stderr)
-            for i, r in enumerate(results):
-                print("%d %s" % (r["score"], r["url"].strip()))
+            for _, r in enumerate(results):
+                print(f"{r['score']} {r['url'].strip()}")
             print("\n----------")
             sys.stdout.flush()
 
