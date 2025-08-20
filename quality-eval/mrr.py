@@ -18,22 +18,42 @@ def read_top_results(filename):
         m = re.match("Query: (.+)", line)
         if m:
             match = m.group(1)
-            query = match.split(" ")[0]
+            query_parts = match.split(" ")
+            if query_parts:
+                query = query_parts[0]  # First word is query ID
+                # Skip if query ID is empty or invalid
+                if not query or not query.isdigit():
+                    query = ""
+                    continue
         else:
             tokens = line.split()
             if (
                 len(tokens) > 1
+                and query  # Make sure query is not empty
                 and query not in score_dict
                 and "/home/ubuntu" not in tokens[0]
+                and "/home/azureuser" not in tokens[0]  # Also filter azureuser paths
             ):
-                score_dict[query] = [tokens[1]]
+                try:
+                    # Validate that first token is a number (score)
+                    float(tokens[0])
+                    score_dict[query] = [tokens[1]]
+                except ValueError:
+                    continue
             elif (
                 len(tokens) > 1
+                and query  # Make sure query is not empty
                 and query in score_dict
                 and len(score_dict[query]) < MRR_RANK
                 and "/home/ubuntu" not in tokens[0]
+                and "/home/azureuser" not in tokens[0]  # Also filter azureuser paths
             ):
-                score_dict[query].append(tokens[1])
+                try:
+                    # Validate that first token is a number (score)
+                    float(tokens[0])
+                    score_dict[query].append(tokens[1])
+                except ValueError:
+                    continue
     return score_dict
 
 

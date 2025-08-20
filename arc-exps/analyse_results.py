@@ -6,6 +6,7 @@ import argparse
 import glob
 import os
 import re
+from pathlib import Path
 from typing import Dict
 
 # Import the MRR computation module
@@ -140,17 +141,38 @@ class TiptoeAnalyser:
 
         print(f"🔍 Analyzing results in: {self.results_dir}")
 
-        # Find result files
-        latency_files = glob.glob(
-            f"{self.results_dir}/**/*latency*.log", recursive=True
-        )
-        quality_files = glob.glob(
-            f"{self.results_dir}/**/*quality*.log", recursive=True
-        )
+        # Look in multiple locations for latency files
+        search_dirs = [
+            self.results_dir,
+            "/home/azureuser/quick_data/results",
+            "/home/azureuser/arc-exps",
+            ".",
+        ]
+
+        latency_files = []
+        quality_files = []
+
+        for search_dir in search_dirs:
+            if Path(search_dir).exists():
+                latency_files.extend(
+                    glob.glob(f"{search_dir}/**/*latency*.log", recursive=True)
+                )
+                quality_files.extend(
+                    glob.glob(f"{search_dir}/**/*quality*.log", recursive=True)
+                )
+
+        # Remove duplicates
+        latency_files = list(set(latency_files))
+        quality_files = list(set(quality_files))
 
         print(
             f"Found {len(latency_files)} latency files, {len(quality_files)} quality files"
         )
+
+        if latency_files:
+            print(f"  📊 Latency files: {[Path(f).name for f in latency_files]}")
+        if quality_files:
+            print(f"  🔍 Quality files: {[Path(f).name for f in quality_files]}")
 
         # Parse latency results
         if latency_files:
