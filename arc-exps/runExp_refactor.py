@@ -115,22 +115,40 @@ class LocalTiptoeCluster:
         if self.image_search:
             cmd.extend(["-image_search", "true"])
 
-        result = subprocess.run(
-            cmd, cwd="../search", capture_output=True, text=True, check=True
-        )
+        # Add more detailed error handling
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd="../search",
+                capture_output=True,
+                text=True,
+                check=False,  # Don't raise on non-zero exit
+            )
 
-        # Save results
-        prefix = "local-img/" if self.image_search else "local-text/"
-        os.makedirs(prefix, exist_ok=True)
+            if result.returncode != 0:
+                print(
+                    f"❌ Client latency experiment failed with exit code {result.returncode}"
+                )
+                print(f"STDOUT: {result.stdout}")
+                print(f"STDERR: {result.stderr}")
+                return None
 
-        filename = (
-            f"{prefix}{self.num_embed_servers}-{self.num_url_servers}-1-latency.log"
-        )
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(result.stdout)
+            # Save results only if successful
+            prefix = "local-img/" if self.image_search else "local-text/"
+            os.makedirs(prefix, exist_ok=True)
 
-        print(f"Latency experiment completed. Results saved to {filename}")
-        return result.stdout
+            filename = (
+                f"{prefix}{self.num_embed_servers}-{self.num_url_servers}-1-latency.log"
+            )
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(result.stdout)
+
+            print(f"✅ Latency experiment completed. Results saved to {filename}")
+            return result.stdout
+
+        except (subprocess.SubprocessError, OSError, FileNotFoundError) as e:
+            print(f"❌ Exception during latency experiment: {e}")
+            return None
 
     def run_throughput_experiments(self):
         """Run throughput experiments"""

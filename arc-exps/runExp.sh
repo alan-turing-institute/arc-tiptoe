@@ -5,8 +5,8 @@ set -e
 # Config
 PREAMBLE="/home/azureuser"
 OUTPUT_DIR="/home/azureuser/experiment_results"
-NUM_EMBED_SERVERS=8
-NUM_URL_SERVERS=2
+NUM_EMBED_SERVERS=4
+NUM_URL_SERVERS=1
 
 # Create output directory
 mkdir -p $OUTPUT_DIR
@@ -30,17 +30,34 @@ cleanup_processes() {
 check_data() {
     echo "Checking data availability..."
     
+    # Check cluster data
     if [ ! -d "$PREAMBLE/data/clusters" ]; then
         echo "ERROR: Cluster data not found at $PREAMBLE/data/clusters"
         exit 1
     fi
     
+    # Check FAISS index
     if [ ! -f "$PREAMBLE/data/artifact/dim192/index.faiss" ]; then
         echo "ERROR: FAISS index not found at $PREAMBLE/data/artifact/dim192/index.faiss"
         exit 1
     fi
     
-    echo "✓ Data checks passed"
+    # Check PCA components for embeddings
+    if [ ! -f "$PREAMBLE/data/embeddings/pca_components_192.txt" ]; then
+        echo "WARNING: PCA components not found at $PREAMBLE/data/embeddings/pca_components_192.txt"
+    fi
+    
+    # Check cluster centroids
+    if [ ! -f "$PREAMBLE/data/embeddings/centroids.txt" ]; then
+        echo "WARNING: Cluster centroids not found at $PREAMBLE/data/embeddings/centroids.txt"
+    fi
+    
+    # Check MSMARCO queries
+    if [ ! -f "$PREAMBLE/msmarco_data/msmarco-docdev-queries.tsv" ]; then
+        echo "WARNING: MSMARCO queries not found at $PREAMBLE/msmarco_data/msmarco-docdev-queries.tsv"
+    fi
+    
+    echo "✓ Basic data checks passed"
 }
 
 # Function to run baseline experiments
@@ -49,13 +66,12 @@ run_baseline_experiments() {
     
     cd arc-exps
     
-    # Run your refactored experiment script
+    # Run your refactored experiment script (FIXED: removed --output_dir argument)
     echo "Starting baseline performance experiments..."
     python3 runExp_refactor.py \
         --num_embed_servers $NUM_EMBED_SERVERS \
         --num_url_servers $NUM_URL_SERVERS \
-        --preamble $PREAMBLE \
-        --output_dir $OUTPUT_DIR/baseline 2>&1 | tee $OUTPUT_DIR/baseline_experiment.log
+        --preamble $PREAMBLE 2>&1 | tee $OUTPUT_DIR/baseline_experiment.log
     
     cd ..
     echo "✓ Baseline experiments completed"
@@ -65,8 +81,20 @@ run_baseline_experiments() {
 run_quality_evaluation() {
     echo "=== Running Quality Evaluation ==="
     
-    # Update search.py config to point to your data
-    cd cluster/kmeans
+    # Install faiss if not available
+    if ! python3 -c "import faiss" 2>/dev/null; then
+        echo "Installing faiss-cpu..."
+        pip3 install faiss-cpu
+    fi
+    
+    # Check if sentence-transformers is available
+    if ! python3 -c "import sentence_transformers" 2>/dev/null; then
+        echo "Installing sentence-transformers..."
+        pip3 install sentence-transformers
+    fi
+    
+    # Use clustering
+    cd clustering
     
     # Create config file for your setup
     cat > azure_config.json << EOF
@@ -89,7 +117,7 @@ EOF
     echo "Running search quality evaluation..."
     python3 search.py azure_config.json > $OUTPUT_DIR/quality_evaluation.log 2>&1
     
-    cd ../../
+    cd ../
     echo "✓ Quality evaluation completed"
 }
 

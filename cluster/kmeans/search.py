@@ -286,15 +286,35 @@ def search(query, num_results, config):
     query_embed_pca = query_embed
     if config["RUN_PCA"] and config["PCA_COMPONENTS_FILE"]:
         if os.path.exists(config["PCA_COMPONENTS_FILE"]):
-            pca_components = numpy.load(config["PCA_COMPONENTS_FILE"])
-            if config["IS_TEXT"]:
-                query_embed_pca = numpy.clip(
-                    numpy.round(numpy.matmul(query_embed, pca_components) / 10), -16, 15
-                )
+            try:
+                pca_components = numpy.loadtxt(config["PCA_COMPONENTS_FILE"])
+            except ValueError as e:
+                print(f"Warning: Could not load PCA components: {e}", file=sys.stderr)
+                print("Trying alternative loading methods...", file=sys.stderr)
+                try:
+                    # Try loading as text file
+                    pca_components = numpy.loadtxt(config["PCA_COMPONENTS_FILE"])
+                except (OSError, ValueError, UnicodeDecodeError) as e2:
+                    print(
+                        f"Warning: All PCA loading methods failed: {e2}",
+                        file=sys.stderr,
+                    )
+                    print("Continuing without PCA transformation", file=sys.stderr)
+                    pca_components = None
+
+            if pca_components is not None:
+                if config["IS_TEXT"]:
+                    query_embed_pca = numpy.clip(
+                        numpy.round(numpy.matmul(query_embed, pca_components) / 10),
+                        -16,
+                        15,
+                    )
+                else:
+                    query_embed_pca = numpy.clip(
+                        numpy.round(numpy.matmul(query_embed, pca_components)), -16, 15
+                    )
             else:
-                query_embed_pca = numpy.clip(
-                    numpy.round(numpy.matmul(query_embed, pca_components)), -16, 15
-                )
+                query_embed_pca = numpy.clip(query_embed_pca, -16, 15)
         else:
             print(
                 f"Warning: PCA components file not found: {config['PCA_COMPONENTS_FILE']}",
@@ -368,11 +388,20 @@ def main():
 
         lines = open(config["QUERY_FILE"], encoding="utf-8").read().splitlines()
         query_data = [line.split("\t") for line in lines]
+
+        # Skip header row if it exists
+        if query_data[0][0] == "query_id":
+            query_data = query_data[1:]
+
         query_list = [elem[1] for elem in query_data]
 
         qid_dict = dict()
         for elem in query_data:
-            qid_dict[elem[1]] = int(elem[0])
+            try:
+                qid_dict[elem[1]] = int(elem[0])
+            except ValueError:
+                print(f"Skipping invalid query ID: {elem[0]}")
+                continue
 
         # Load badwords if enabled and file exists
         badwords = set()
