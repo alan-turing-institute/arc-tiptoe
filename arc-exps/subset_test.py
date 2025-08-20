@@ -23,34 +23,34 @@ class SimpleQuickPipeline:
         self.quick_dir = self.base_dir / "quick_data"
 
     def create_subset_queries_only(self):
-        """Create smaller query file - that's all we need"""
-        print(f"Creating subset with {self.subset_queries} queries...")
+        """Create smaller query file - use queries that have qrels"""
+        print(f"Creating subset with {self.subset_queries} queries that have qrels...")
 
         self.quick_dir.mkdir(exist_ok=True)
 
-        source_queries = self.base_dir / "msmarco_data" / "msmarco-docdev-queries.tsv"
+        # Use the qrels-based query creation
+        from use_qrels_queries import create_subset_with_qrels
+
+        query_file = create_subset_with_qrels(str(self.base_dir), self.subset_queries)
+
+        if query_file and Path(query_file).exists():
+            print("✅ Created queries with guaranteed qrels entries")
+            return Path(query_file)
+        else:
+            # Fallback to original method
+            print("⚠️  Falling back to original query creation...")
+            return self._create_original_queries()
+
+    def _create_original_queries(self):
+        """Original query creation method (fallback)"""
+        # Your existing create_subset_queries_only code here
         target_queries = self.quick_dir / "quick_queries.tsv"
 
-        if source_queries.exists():
-            with open(source_queries, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            # Skip header if present
-            if lines and "query_id" in lines[0]:
-                subset_lines = lines[1 : self.subset_queries + 1]
-            else:
-                subset_lines = lines[: self.subset_queries]
-
-            with open(target_queries, "w", encoding="utf-8") as f:
-                f.writelines(subset_lines)
-
-            print(f"✅ Created {len(subset_lines)} queries")
-        else:
-            # Create dummy queries for testing
-            with open(target_queries, "w", encoding="utf-8") as f:
-                for i in range(self.subset_queries):
-                    f.write(f"{i+1000}\theart disease symptoms test query {i+1}\n")
-            print(f"✅ Created {self.subset_queries} dummy queries")
+        # Create dummy queries for testing (but warn about MRR)
+        with open(target_queries, "w", encoding="utf-8") as f:
+            for i in range(self.subset_queries):
+                f.write(f"{i+1000}\theart disease symptoms test query {i+1}\n")
+        print(f"⚠️  Created {self.subset_queries} dummy queries (MRR will be 0)")
 
         return target_queries
 

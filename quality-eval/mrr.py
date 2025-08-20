@@ -38,12 +38,33 @@ def read_top_results(filename):
 
 
 def read_ranked_qrel(filename):
+    # PATCHED FOR MSMARCO - Handle tab-separated qrels format
     lines = open(filename).read().splitlines()
-    query_data = [line.split(" ") for line in lines]
     result_dict = dict()
-    for qid, _, docid, _ in query_data:
-        if qid not in result_dict:
-            result_dict[qid] = docid
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Try tab-separated first (MSMARCO format)
+        parts = line.split("\t")
+        if len(parts) < 4:
+            # Fall back to space-separated (original format)
+            parts = line.split(" ")
+
+        if len(parts) >= 4:
+            try:
+                qid = parts[0]
+                docid = parts[2]
+                relevance = int(parts[3])
+
+                # Only keep relevant documents (relevance > 0)
+                if relevance > 0 and qid not in result_dict:
+                    result_dict[qid] = docid
+            except (ValueError, IndexError):
+                continue
+
     return result_dict
 
 

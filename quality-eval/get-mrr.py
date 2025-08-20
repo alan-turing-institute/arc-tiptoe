@@ -5,7 +5,7 @@ import sys
 import numpy
 from mrr import *
 
-QRELS_FILE = "/home/ubuntu/msmarco_checkpoints/msmarco-docdev-qrels.tsv"
+QRELS_FILE = "/home/azureuser/msmarco_data/msmarco-docdev-qrels.tsv"
 
 
 def main():
