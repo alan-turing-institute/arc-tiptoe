@@ -11,6 +11,7 @@ import os
 # import signal
 import subprocess
 import time
+from pathlib import Path
 
 
 class LocalTiptoeCluster:
@@ -30,6 +31,28 @@ class LocalTiptoeCluster:
         self.url_ports = list(range(9001, 9001 + num_url_servers))
         self.coordinator_port = 8000
 
+        # Set default search directory
+        self.search_dir = "../search"
+
+        # Try to find the correct search directory
+        current_dir = Path.cwd()
+        if (current_dir / "search").exists():
+            self.search_dir = "search"
+        elif (current_dir.parent / "search").exists():
+            self.search_dir = "../search"
+        else:
+            # Look for search directory in the workspace
+            search_paths = [
+                current_dir / "search",
+                current_dir.parent / "search",
+                Path("/home/azureuser/search"),
+                Path.cwd().parent / "search",
+            ]
+            for path in search_paths:
+                if path.exists():
+                    self.search_dir = str(path)
+                    break
+
     def start_embedding_servers(self):
         """Start embedding servers locally"""
         print(f"Starting {self.num_embed_servers} embedding servers...")
@@ -40,8 +63,9 @@ class LocalTiptoeCluster:
                 cmd.extend(["-image_search", "true"])
 
             print(f"Starting embedding server {i}...")
+            print(f"Working directory: {self.search_dir}")  # Debug info
             proc = subprocess.Popen(
-                cmd, cwd="../search", stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                cmd, cwd=self.search_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             self.processes.append(("embed", i, proc))
             time.sleep(2)  # Stagger startup
@@ -50,6 +74,7 @@ class LocalTiptoeCluster:
         time.sleep(30)
         print("All embedding servers started")
 
+    # Update other methods similarly to use self.search_dir instead of "../search"
     def start_url_servers(self):
         """Start URL servers locally"""
         print(f"Starting {self.num_url_servers} URL servers...")
@@ -61,7 +86,7 @@ class LocalTiptoeCluster:
 
             print(f"Starting URL server {i}...")
             proc = subprocess.Popen(
-                cmd, cwd="../search", stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                cmd, cwd=self.search_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             self.processes.append(("url", i, proc))
             time.sleep(2)
@@ -93,7 +118,7 @@ class LocalTiptoeCluster:
             cmd.extend(["-image_search", "true"])
 
         proc = subprocess.Popen(
-            cmd, cwd="../search", stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            cmd, cwd=self.search_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         self.processes.append(("coordinator", 0, proc))
         time.sleep(10)
@@ -118,11 +143,7 @@ class LocalTiptoeCluster:
         # Add more detailed error handling
         try:
             result = subprocess.run(
-                cmd,
-                cwd="../search",
-                capture_output=True,
-                text=True,
-                check=False,  # Don't raise on non-zero exit
+                cmd, cwd=self.search_dir, capture_output=True, text=True, check=False
             )
 
             if result.returncode != 0:
@@ -146,7 +167,7 @@ class LocalTiptoeCluster:
             print(f"✅ Latency experiment completed. Results saved to {filename}")
             return result.stdout
 
-        except (subprocess.SubprocessError, OSError, FileNotFoundError) as e:
+        except (subprocess.SubprocessError, OSError, IOError) as e:
             print(f"❌ Exception during latency experiment: {e}")
             return None
 
