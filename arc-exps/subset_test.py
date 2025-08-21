@@ -143,12 +143,28 @@ def run_quick_quality_test(
         print("❌ Could not find clustering/search.py")
         return None
 
-    print(f"🔍 Using clustering/search.py for multi-cluster search")
+    print("🔍 Using clustering/search.py for multi-cluster search")
+    print(f"   Config: {config_file}")
+
+    # Verify config file exists and is valid
+    if not Path(config_file).exists():
+        print(f"❌ Config file not found: {config_file}")
+        return None
+
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+        print(f"   Clusters to search: {config.get('NUM_CLUSTERS', 'unknown')}")
+        print(f"   Query file: {config.get('QUERY_FILE', 'unknown')}")
+        print(f"   PCA enabled: {config.get('RUN_PCA', 'unknown')}")
+    except Exception as e:
+        print(f"⚠️  Could not read config: {e}")
 
     cmd = ["python3", "search.py", config_file]
     cwd = "clustering"
 
     try:
+        print(f"   Running: {' '.join(cmd)} (in {cwd})")
         result = subprocess.run(
             cmd,
             cwd=cwd,
@@ -158,52 +174,72 @@ def run_quick_quality_test(
             check=False,
         )
 
+        print(f"   Return code: {result.returncode}")
+        print(f"   Stdout length: {len(result.stdout)} chars")
+        print(f"   Stderr length: {len(result.stderr)} chars")
+
         if result.returncode == 0:
-            print("✅ Quality test completed")
+            if result.stdout.strip():
+                print("✅ Quality test completed with results")
 
-            # Save results
-            if results_dir:
-                results_path = Path(results_dir)
-                results_path.mkdir(exist_ok=True)
-
-                quality_file = results_path / f"{experiment_name}_quality.log"
-                with open(quality_file, "w", encoding="utf-8") as f:
-                    f.write(result.stdout)
-
-                print(f"📁 Quality results saved to: {quality_file}")
-
-                # Enhanced summary for multi-cluster
+                # Show first few lines of output for debugging
                 lines = result.stdout.split("\n")
-                query_count = len([line for line in lines if "Query:" in line])
-                result_count = len(
-                    [
-                        line
-                        for line in lines
-                        if line.strip()
-                        and not line.startswith("Query:")
-                        and not line.startswith("---------------")
-                    ]
-                )
+                print("   First 10 lines of output:")
+                for i, line in enumerate(lines[:10]):
+                    if line.strip():
+                        print(f"     {i+1}: {line[:100]}")
 
-                # Parse cluster information from stderr
-                stderr_lines = result.stderr.split("\n")
-                cluster_info = [
-                    line for line in stderr_lines if "Nearest clusters:" in line
-                ]
+                # Save results
+                if results_dir:
+                    results_path = Path(results_dir)
+                    results_path.mkdir(exist_ok=True)
 
-                print(
-                    f"📊 Processed {query_count} queries, {result_count} total results"
-                )
-                if cluster_info:
-                    print(
-                        f"🔍 Multi-cluster info: {cluster_info[0] if cluster_info else 'N/A'}"
+                    quality_file = results_path / f"{experiment_name}_quality.log"
+                    with open(quality_file, "w", encoding="utf-8") as f:
+                        f.write(result.stdout)
+
+                    print(f"📁 Quality results saved to: {quality_file}")
+                    print(f"   File size: {quality_file.stat().st_size} bytes")
+
+                    # Enhanced summary for multi-cluster
+                    lines = result.stdout.split("\n")
+                    query_count = len([line for line in lines if "Query:" in line])
+                    result_count = len(
+                        [
+                            line
+                            for line in lines
+                            if line.strip()
+                            and not line.startswith("Query:")
+                            and not line.startswith("---------------")
+                            and len(line.split()) >= 2
+                        ]
                     )
 
-            return result.stdout
+                    # Parse cluster information from stderr
+                    stderr_lines = result.stderr.split("\n")
+                    cluster_info = [
+                        line for line in stderr_lines if "Nearest clusters:" in line
+                    ]
+
+                    print(
+                        f"📊 Processed {query_count} queries, {result_count} total results"
+                    )
+                    if cluster_info:
+                        print(
+                            f"🔍 Multi-cluster info: {cluster_info[0] if cluster_info else 'N/A'}"
+                        )
+
+                return result.stdout
+            else:
+                print("❌ Quality test completed but produced no output")
+                print("   This suggests the search isn't finding any results")
+                if result.stderr:
+                    print(f"   Stderr: {result.stderr[:500]}")
+                return None
         else:
-            print(f"❌ Quality test failed: {result.stderr}")
-            print(f"   Command: {' '.join(cmd)}")
-            print(f"   Working dir: {cwd}")
+            print(f"❌ Quality test failed: return code {result.returncode}")
+            print(f"   Stderr: {result.stderr}")
+            print(f"   Stdout: {result.stdout}")
             return None
 
     except subprocess.TimeoutExpired:

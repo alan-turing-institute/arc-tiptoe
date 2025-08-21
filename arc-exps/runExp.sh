@@ -5,8 +5,8 @@ set -e
 # Config
 PREAMBLE="/home/azureuser"
 OUTPUT_DIR="/home/azureuser/experiment_results"
-NUM_EMBED_SERVERS=4
-NUM_URL_SERVERS=1
+NUM_EMBED_SERVERS=40
+NUM_URL_SERVERS=20
 
 # Create output directory
 mkdir -p $OUTPUT_DIR

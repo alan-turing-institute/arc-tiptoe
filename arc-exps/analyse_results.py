@@ -135,13 +135,141 @@ class TiptoeAnalyser:
 
         return metrics
 
+    def analyze_multi_cluster_experiments(self) -> Dict:
+        """Analyze multi-cluster experiment results"""
+
+        # Determine the correct multi-cluster directory based on current context
+        if "multi_cluster_results" in self.results_dir:
+            # We're already in a multi-cluster directory
+            multi_cluster_dirs = [Path(self.results_dir)]
+        else:
+            # Look for multi-cluster results directory
+            multi_cluster_dirs = [
+                Path(self.results_dir) / "multi_cluster_results",
+                Path("/home/azureuser/quick_data/multi_cluster_results"),
+                Path("/home/azureuser/full_multi_cluster_results"),
+            ]
+
+        multi_results = {}
+
+        for multi_dir in multi_cluster_dirs:
+            if not multi_dir.exists():
+                continue
+
+            print(f"🔍 Found multi-cluster results in: {multi_dir}")
+
+            # Find experiment subdirectories (avoid infinite recursion)
+            exp_dirs = []
+            try:
+                for d in multi_dir.iterdir():
+                    if (
+                        d.is_dir()
+                        and "c_" in d.name
+                        and not d.name.startswith(
+                            "multi_cluster"
+                        )  # Avoid recursive directories
+                        and len(d.name.split("_")) >= 2
+                    ):  # Ensure proper format like "1c_basic"
+                        exp_dirs.append(d)
+            except (OSError, PermissionError) as e:
+                print(f"   ⚠️  Error reading directory {multi_dir}: {e}")
+                continue
+
+            if not exp_dirs:
+                print(f"   No valid experiment directories found in {multi_dir}")
+                continue
+
+            print(f"   Found {len(exp_dirs)} experiments: {[d.name for d in exp_dirs]}")
+
+            for exp_dir in exp_dirs:
+                exp_name = exp_dir.name
+
+                # Parse experiment configuration from name
+                parts = exp_name.split("_")
+                if len(parts) >= 2:
+                    try:
+                        num_clusters = int(parts[0].replace("c", ""))
+                        optimization = "_".join(parts[1:])
+                    except ValueError:
+                        print(f"   ⚠️  Could not parse experiment name: {exp_name}")
+                        continue
+                else:
+                    print(f"   ⚠️  Invalid experiment name format: {exp_name}")
+                    continue
+
+                # Prevent recursive analysis by checking if we're already in an experiment directory
+                if exp_dir == Path(self.results_dir):
+                    print(f"   ⚠️  Skipping recursive analysis of {exp_name}")
+                    continue
+
+                # Analyze this specific experiment (but prevent infinite recursion)
+                try:
+                    exp_analyzer = TiptoeAnalyser(str(exp_dir))
+                    # Only analyze single cluster results, not multi-cluster to prevent recursion
+                    exp_analysis = exp_analyzer.analyze_single_experiment()
+
+                    # Store in multi_results
+                    multi_results[exp_name] = {
+                        "num_clusters": num_clusters,
+                        "optimization": optimization,
+                        "latency": exp_analysis.get("latency", {}),
+                        "quality": exp_analysis.get("quality", {}),
+                    }
+
+                    print(
+                        f"   📊 {exp_name}: "
+                        f"MRR={multi_results[exp_name]['quality'].get('mrr_100', 0):.4f}, "
+                        f"Comm={multi_results[exp_name]['latency'].get('total_comm_mb', 0):.2f}MB"
+                    )
+                except Exception as e:
+                    print(f"   ❌ Error analyzing {exp_name}: {e}")
+                    continue
+
+            # Only process the first valid directory to avoid duplicates
+            if multi_results:
+                break
+
+        return multi_results
+
+    def analyze_single_experiment(self) -> Dict:
+        """Analyze a single experiment directory without multi-cluster recursion"""
+        results = {"latency": {}, "quality": {}}
+
+        # Look for files directly in this directory
+        latency_files = list(Path(self.results_dir).glob("*latency*.log"))
+        quality_files = list(Path(self.results_dir).glob("*quality*.log"))
+
+        # Parse latency results
+        if latency_files:
+            results["latency"] = self.parse_latency_log(str(latency_files[0]))
+
+        # Parse quality results
+        if quality_files:
+            results["quality"] = self.parse_quality_log(str(quality_files[0]))
+
+        return results
+
     def analyze_all_results(self) -> Dict:
         """Analyze all available experiment results"""
         results = {"single_cluster": {"latency": {}, "quality": {}, "throughput": {}}}
 
         print(f"🔍 Analyzing results in: {self.results_dir}")
 
-        # Look in multiple locations for latency files
+        # Check if we're already in a specific experiment directory
+        current_dir = Path(self.results_dir)
+        if (
+            current_dir.name
+            and "c_" in current_dir.name
+            and len(current_dir.name.split("_")) >= 2
+        ):
+            # We're in a specific experiment directory
+            print(f"   Analyzing single experiment: {current_dir.name}")
+            single_results = self.analyze_single_experiment()
+            results["single_cluster"]["latency"] = single_results.get("latency", {})
+            results["single_cluster"]["quality"] = single_results.get("quality", {})
+            return results
+
+        # Look in multiple locations for files
         search_dirs = [
             self.results_dir,
             "/home/azureuser/quick_data/results",
@@ -153,38 +281,99 @@ class TiptoeAnalyser:
         quality_files = []
 
         for search_dir in search_dirs:
-            if Path(search_dir).exists():
-                latency_files.extend(
-                    glob.glob(f"{search_dir}/**/*latency*.log", recursive=True)
-                )
-                quality_files.extend(
-                    glob.glob(f"{search_dir}/**/*quality*.log", recursive=True)
-                )
+            search_path = Path(search_dir)
+            if search_path.exists():
+                try:
+                    print(f"   🔍 Searching in: {search_dir}")
 
-        # Remove duplicates
-        latency_files = list(set(latency_files))
-        quality_files = list(set(quality_files))
+                    # Look for files directly in directory
+                    dir_latency = list(search_path.glob("*latency*.log"))
+                    dir_quality = list(search_path.glob("*quality*.log"))
+
+                    # Also look in subdirectories for multi-cluster results
+                    subdir_latency = list(search_path.glob("*/*latency*.log"))
+                    subdir_quality = list(search_path.glob("*/*quality*.log"))
+
+                    latency_files.extend(dir_latency + subdir_latency)
+                    quality_files.extend(dir_quality + subdir_quality)
+
+                    found_files = len(
+                        dir_latency + subdir_latency + dir_quality + subdir_quality
+                    )
+                    if found_files > 0:
+                        print(
+                            f"     📄 Found {len(dir_latency + subdir_latency)} latency, {len(dir_quality + subdir_quality)} quality files"
+                        )
+
+                except (OSError, PermissionError) as e:
+                    print(f"   ⚠️  Error reading {search_dir}: {e}")
+                    continue
+
+        # Remove duplicates and convert to strings
+        latency_files = list(set(str(f) for f in latency_files))
+        quality_files = list(set(str(f) for f in quality_files))
 
         print(
             f"Found {len(latency_files)} latency files, {len(quality_files)} quality files"
         )
 
         if latency_files:
-            print(f"  📊 Latency files: {[Path(f).name for f in latency_files]}")
+            print(f"  📊 Latency files: {[Path(f).name for f in latency_files[:5]]}")
         if quality_files:
-            print(f"  🔍 Quality files: {[Path(f).name for f in quality_files]}")
+            print(f"  🔍 Quality files: {[Path(f).name for f in quality_files[:5]]}")
+
+        # Find the most relevant files for multi-cluster analysis
+        # Prefer files from multi-cluster experiments
+        best_latency_file = None
+        best_quality_file = None
+
+        # Look for multi-cluster files first
+        for lf in latency_files:
+            if "multi_cluster_results" in lf and any(x in lf for x in ["2c_", "4c_"]):
+                best_latency_file = lf
+                break
+        if not best_latency_file and latency_files:
+            best_latency_file = latency_files[0]
+
+        for qf in quality_files:
+            if "multi_cluster_results" in qf and any(x in qf for x in ["2c_", "4c_"]):
+                # Check if file has content
+                if Path(qf).stat().st_size > 0:
+                    best_quality_file = qf
+                    break
+        if not best_quality_file:
+            # Find any non-empty quality file
+            for qf in quality_files:
+                if Path(qf).stat().st_size > 0:
+                    best_quality_file = qf
+                    break
 
         # Parse latency results
-        if latency_files:
+        if best_latency_file:
+            print(f"  📊 Using latency file: {Path(best_latency_file).name}")
             results["single_cluster"]["latency"] = self.parse_latency_log(
-                latency_files[0]
+                best_latency_file
             )
 
         # Parse quality results
-        if quality_files:
+        if best_quality_file:
+            print(f"  🔍 Using quality file: {Path(best_quality_file).name}")
             results["single_cluster"]["quality"] = self.parse_quality_log(
-                quality_files[0]
+                best_quality_file
             )
+        else:
+            print("  ⚠️  No non-empty quality files found")
+
+        # Check for multi-cluster experiments (only if not already in multi-cluster context)
+        if "multi_cluster_results" not in self.results_dir:
+            try:
+                multi_cluster_results = self.analyze_multi_cluster_experiments()
+                if multi_cluster_results:
+                    results["multi_cluster"] = multi_cluster_results
+            except RecursionError:
+                print("   ⚠️  Prevented infinite recursion in multi-cluster analysis")
+            except Exception as e:
+                print(f"   ⚠️  Multi-cluster analysis failed: {e}")
 
         return results
 
@@ -218,24 +407,72 @@ class TiptoeAnalyser:
                 print("   ⚠️  MRR@100: Not computed (need qrels)")
             print(f"   📝 Queries Evaluated: {quality.get('queries_evaluated', 0)}")
             print(f"   📄 Total Results: {quality.get('total_results_returned', 0)}")
-            print(f"   🎯 Queries with Qrels: {quality.get('queries_with_qrels', 0)}")
 
-        # Key insights
-        print("\n🔑 Key Insights:")
-        if latency and quality:
-            comm_cost = latency.get("total_comm_mb", 0)
-            mrr_score = quality.get("mrr_100", 0)
-            if comm_cost > 0 and mrr_score > 0:
+        # Multi-cluster analysis
+        multi_cluster = results.get("multi_cluster", {})
+        if multi_cluster:
+            print("\n🔬 MULTI-CLUSTER EXPERIMENT RESULTS")
+            print("=" * 60)
+
+            # Create comparison table
+            print(
+                f"{'Experiment':<15} {'Clusters':<8} {'Opt':<10} {'MRR@100':<8} {'Comm(MB)':<10} {'Efficiency':<10}"
+            )
+            print("-" * 75)
+
+            # Sort by communication cost
+            sorted_experiments = sorted(
+                multi_cluster.items(),
+                key=lambda x: x[1]["latency"].get("total_comm_mb", 0),
+            )
+
+            for exp_name, exp_data in sorted_experiments:
+                clusters = exp_data["num_clusters"]
+                opt = exp_data["optimization"]
+                mrr = exp_data["quality"].get("mrr_100", 0)
+                comm = exp_data["latency"].get("total_comm_mb", 0)
+                efficiency = mrr / comm if comm > 0 else 0
+
                 print(
-                    f"   📈 Quality vs Communication: {mrr_score:.4f} MRR @ {comm_cost:.2f} MB"
+                    f"{exp_name:<15} {clusters:<8} {opt:<10} {mrr:<8.4f} {comm:<10.2f} {efficiency:<10.4f}"
                 )
-            elif comm_cost > 0:
+
+            # Find best configurations
+            print("\n💡 Key Insights:")
+
+            if sorted_experiments:
+                # Best efficiency
+                best_efficiency = max(
+                    sorted_experiments,
+                    key=lambda x: x[1]["quality"].get("mrr_100", 0)
+                    / max(x[1]["latency"].get("total_comm_mb", 1), 1),
+                )
+                efficiency_score = best_efficiency[1]["quality"].get(
+                    "mrr_100", 0
+                ) / max(best_efficiency[1]["latency"].get("total_comm_mb", 1), 1)
                 print(
-                    f"   📡 Communication cost measured: {comm_cost:.2f} MB per query"
+                    f"   🏆 Best efficiency: {best_efficiency[0]} ({efficiency_score:.4f} MRR/MB)"
                 )
-                print("   ⚠️  Quality needs qrels file for MRR computation")
-            else:
-                print("   ⚠️  Need to run both performance and quality experiments")
+
+                # Lowest communication with decent quality
+                good_quality_experiments = [
+                    (name, data)
+                    for name, data in sorted_experiments
+                    if data["quality"].get("mrr_100", 0) > 0.10
+                ]
+                if good_quality_experiments:
+                    lowest_comm = min(
+                        good_quality_experiments,
+                        key=lambda x: x[1]["latency"].get("total_comm_mb", 0),
+                    )
+                    print(
+                        f"   📡 Lowest communication (MRR>0.10): {lowest_comm[0]} "
+                        f"({lowest_comm[1]['latency'].get('total_comm_mb', 0):.2f} MB)"
+                    )
+
+        else:
+            print("\n⚠️  No multi-cluster experiments found")
+            print("   ⚠️  Need to run both performance and quality experiments")
 
         print("\n" + "=" * 60)
 
@@ -252,21 +489,63 @@ def main():
     parser.add_argument(
         "--quick", action="store_true", help="Analyze quick experiment results"
     )
+    parser.add_argument(
+        "--multi_cluster",
+        action="store_true",
+        help="Analyze multi-cluster experiment results",
+    )
 
     args = parser.parse_args()
 
-    if args.quick:
+    # Handle conflicting flags - multi_cluster takes precedence
+    if args.multi_cluster:
+        results_dir = "/home/azureuser/quick_data/multi_cluster_results"
+        print("🔬 Multi-cluster analysis mode")
+    elif args.quick:
         results_dir = "/home/azureuser/quick_data/results"
+        print("⚡ Quick analysis mode")
     else:
         results_dir = args.results_dir
+        print(f"📁 Custom directory analysis: {results_dir}")
+
+    # Ensure the directory exists
+    if not Path(results_dir).exists():
+        print(f"❌ Results directory not found: {results_dir}")
+        print("Available directories:")
+        base_dir = Path("/home/azureuser/quick_data")
+        if base_dir.exists():
+            for d in base_dir.iterdir():
+                if d.is_dir():
+                    print(f"  📁 {d}")
+        return
 
     analyzer = TiptoeAnalyser(results_dir)
 
     # Analyze all results
-    results = analyzer.analyze_all_results()
+    print(f"🚀 Starting analysis of: {results_dir}")
+    try:
+        results = analyzer.analyze_all_results()
 
-    # Generate comprehensive report
-    analyzer.generate_summary_report(results)
+        # Generate comprehensive report
+        analyzer.generate_summary_report(results)
+
+        # If multi-cluster analysis, also create plot
+        multi_cluster = results.get("multi_cluster", {})
+        # if multi_cluster:
+        #     try:
+        #         create_multi_cluster_plot(multi_cluster, results_dir)
+        #     except ImportError:
+        #         print("\n⚠️  matplotlib not available - skipping plot generation")
+        #     except Exception as e:
+        #         print(f"\n⚠️  Plot generation failed: {e}")
+
+    except KeyboardInterrupt:
+        print("\n⚠️  Analysis interrupted by user")
+    except Exception as e:
+        print(f"\n❌ Analysis failed: {e}")
+        import traceback
+
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

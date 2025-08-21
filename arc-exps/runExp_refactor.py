@@ -4,6 +4,7 @@ locally on the azure client
 """
 
 import argparse
+import json
 
 # import json
 import os
@@ -253,6 +254,172 @@ class LocalTiptoeCluster:
         print("All throughput experiments completed")
         return results
 
+    def run_quality_experiment(
+        self, num_clusters=1, optimization="basic", query_file=None
+    ):
+        """Run quality experiment with multi-cluster search"""
+        print(
+            f"Running quality experiment: {num_clusters} clusters, {optimization} optimization..."
+        )
+
+        # Create config for clustering/search.py
+        config = {
+            "pca_components_file": f"{self.preamble}/data/embeddings/pca_components_192.txt",
+            "query_file": query_file
+            or f"{self.preamble}/quick_data/quick_queries.tsv",  # This will be the full query set
+            "cluster_file_location": f"{self.preamble}/data/clusters/",
+            "url_bundle_base_dir": f"{self.preamble}/data/clusters/",
+            "index_file": f"{self.preamble}/data/artifact/dim192/index.faiss",
+            "is_text": True,
+            "run_msmarco_dev_queries": True,
+            "filter_badwords": False,
+            "short_exp": False,  # Set to False for full experiment
+            "num_clusters": num_clusters,
+            "centroids_file": f"{self.preamble}/data/embeddings/centroids.txt",
+            "badwords_file": None,
+            "img_results_dir": None,
+        }
+
+        # Apply optimization settings
+        if optimization == "basic":
+            config.update(
+                {
+                    "run_pca": False,
+                    "run_url_filter": False,
+                    "url_filter_by_cluster": False,
+                }
+            )
+        elif optimization == "pca":
+            config.update(
+                {
+                    "run_pca": True,
+                    "run_url_filter": False,
+                    "url_filter_by_cluster": False,
+                }
+            )
+
+        # Save config in clustering directory where search.py expects it
+        config_filename = f"multi_cluster_config_{num_clusters}c_{optimization}.json"
+        config_file = f"clustering/{config_filename}"
+
+        with open(config_file, "w") as f:
+            json.dump(config, f, indent=2)
+
+        # Run clustering/search.py with much longer timeout for full dataset
+        cmd = ["python3", "search.py", config_filename]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd="clustering",
+                capture_output=True,
+                text=True,
+                timeout=3600,  # 1 hour timeout for full experiment
+                check=False,
+            )
+
+            if result.returncode == 0:
+                # Save results
+                prefix = "local-img/" if self.image_search else "local-text/"
+                os.makedirs(prefix, exist_ok=True)
+
+                filename = f"{prefix}{num_clusters}c_{optimization}_quality.log"
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(result.stdout)
+
+                print(f"✅ Quality experiment completed. Results saved to {filename}")
+
+                # Quick analysis
+                lines = result.stdout.split("\n")
+                query_count = len([line for line in lines if "Query:" in line])
+                result_count = len(
+                    [
+                        line
+                        for line in lines
+                        if line.strip() and not line.startswith("Query:")
+                    ]
+                )
+                print(
+                    f"   📊 Processed {query_count} queries, {result_count} total results"
+                )
+
+                return result.stdout
+            else:
+                print(f"❌ Quality experiment failed: {result.stderr}")
+                return None
+
+        except subprocess.TimeoutExpired:
+            print(f"❌ Quality experiment timed out after 1 hour")
+            return None
+        except Exception as e:
+            print(f"❌ Quality experiment error: {e}")
+            return None
+
+    def run_multi_cluster_experiments(self, cluster_configs=None, optimizations=None):
+        """Run experiments across multiple cluster configurations"""
+
+        if cluster_configs is None:
+            cluster_configs = [1, 2, 4]
+        if optimizations is None:
+            optimizations = ["basic", "pca"]
+
+        print("🚀 Running multi-cluster experiments...")
+        print(f"   Cluster configs: {cluster_configs}")
+        print(f"   Optimizations: {optimizations}")
+
+        results = []
+
+        for num_clusters in cluster_configs:
+            for optimization in optimizations:
+                experiment_name = f"{num_clusters}c_{optimization}"
+                print(f"\n🔬 Experiment: {experiment_name}")
+
+                try:
+                    # Run quality experiment
+                    print("  🔍 Running quality...")
+                    quality_results = self.run_quality_experiment(
+                        num_clusters=num_clusters, optimization=optimization
+                    )
+
+                    result = {
+                        "experiment": experiment_name,
+                        "num_clusters": num_clusters,
+                        "optimization": optimization,
+                        "quality_success": quality_results is not None,
+                    }
+
+                    results.append(result)
+
+                    if quality_results:
+                        print(f"  ✅ {experiment_name}: Success")
+                    else:
+                        print(f"  ❌ {experiment_name}: Failed")
+
+                    # Brief pause between experiments
+                    time.sleep(5)
+
+                except Exception as e:
+                    print(f"  ❌ {experiment_name}: Error - {e}")
+                    results.append(
+                        {
+                            "experiment": experiment_name,
+                            "num_clusters": num_clusters,
+                            "optimization": optimization,
+                            "error": str(e),
+                            "quality_success": False,
+                        }
+                    )
+
+        # Summary
+        print("\n📋 Multi-Cluster Experiments Summary:")
+        print(f"{'Experiment':<12} {'Quality':<8}")
+        print("-" * 25)
+        for result in results:
+            qual = "✅" if result.get("quality_success", False) else "❌"
+            print(f"{result['experiment']:<12} {qual:<8}")
+
+        return results
+
     def cleanup(self):
         """Terminate all processes"""
         print("Cleaning up processes...")
@@ -284,9 +451,25 @@ def main(args):
         cluster.start_url_servers()
         cluster.start_coordinator()
 
-        # Run experiments
-        cluster.run_latency_experiment()
-        cluster.run_throughput_experiments()
+        # Check if multi-cluster mode
+        if args.multi_cluster:
+            # Run multi-cluster experiments
+            cluster.run_multi_cluster_experiments(
+                cluster_configs=args.clusters, optimizations=args.optimizations
+            )
+        elif args.quality_only:
+            # Run only quality experiment
+            cluster.run_quality_experiment(
+                num_clusters=args.num_clusters, optimization=args.optimization
+            )
+        elif args.performance_only:
+            # Run only performance experiments
+            cluster.run_latency_experiment()
+            cluster.run_throughput_experiments()
+        else:
+            # Run single experiments (original functionality)
+            cluster.run_latency_experiment()
+            cluster.run_throughput_experiments()
 
         print("\n=== Experiment Summary ===")
         print(f"Embedding servers: {args.num_embed_servers}")
@@ -314,5 +497,42 @@ if __name__ == "__main__":
     parser.add_argument(
         "--preamble", type=str, default="/home/azureuser", help="Data path"
     )
+
+    # Multi-cluster options
+    parser.add_argument(
+        "--multi_cluster", action="store_true", help="Run multi-cluster experiments"
+    )
+    parser.add_argument(
+        "--clusters",
+        type=int,
+        nargs="+",
+        default=[1, 2, 4],
+        help="Cluster configurations to test",
+    )
+    parser.add_argument(
+        "--optimizations",
+        type=str,
+        nargs="+",
+        default=["basic", "pca"],
+        help="Optimizations to test",
+    )
+
+    # Single experiment options
+    parser.add_argument(
+        "--num_clusters",
+        type=int,
+        default=1,
+        help="Number of clusters for single experiment",
+    )
+    parser.add_argument(
+        "--optimization",
+        type=str,
+        default="basic",
+        choices=["basic", "pca"],
+        help="Optimization for single experiment",
+    )
+    parser.add_argument("--performance_only", action="store_true")
+    parser.add_argument("--quality_only", action="store_true")
+
     arguments = parser.parse_args()
     main(arguments)
