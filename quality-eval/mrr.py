@@ -1,16 +1,18 @@
-import re
-import statistics
-import sys
+"""
+Functions for computing the MRR
+"""
 
-import numpy
+import re
+import sys
 
 MRR_RANK = 100
 # MRR_RANK = 100
 
 
 def read_top_results(filename):
+    """Read the top result from the file"""
     score_dict = dict()
-    with open(filename) as file:
+    with open(filename, encoding="utf-8") as file:
         lines = [line.rstrip() for line in file]
 
     query = ""
@@ -58,8 +60,11 @@ def read_top_results(filename):
 
 
 def read_ranked_qrel(filename):
+    """
+    Read the ranked qrels from the file
+    """
     # PATCHED FOR MSMARCO - Handle tab-separated qrels format
-    lines = open(filename).read().splitlines()
+    lines = open(filename, encoding="utf-8").read().splitlines()
     result_dict = dict()
 
     for line in lines:
@@ -89,6 +94,7 @@ def read_ranked_qrel(filename):
 
 
 def compute_mrr(result_dict, real_dict):
+    """Given the results and ground truth, compute the mrr"""
     mrr = 0.0
     num_ranked = 0
     for qid in result_dict:
@@ -97,16 +103,17 @@ def compute_mrr(result_dict, real_dict):
             if real == result and i < MRR_RANK:
                 num_ranked += 1
                 mrr += 1.0 / float(i + 1)
-    print("Num ranked = %d" % num_ranked)
-    print("Total = %d" % len(result_dict))
+    print(f"Num ranked = {num_ranked}")
+    print(f"Total = {len(result_dict)}")
     return mrr / float(len(result_dict))
 
 
 def main():
+    """Main entry point"""
     results = read_top_results(sys.argv[1])
     real = read_ranked_qrel("/home/ubuntu/msmarco/msmarco-docdev-qrels.tsv")
     mrr = compute_mrr(results, real)
-    print("MRR@%d: %f" % (MRR_RANK, mrr))
+    print(f"MRR@{MRR_RANK}: {mrr}")
 
 
 if __name__ == "__main__":

@@ -5,11 +5,11 @@ Create subset using only queries that have qrels entries
 from pathlib import Path
 
 
-def find_qrels_file(base_dir: str = "/home/azureuser") -> str:
+def find_qrels_file(search_dir: str = "/home/azureuser") -> str:
     """Find the qrels file in common locations"""
     possible_locations = [
-        f"{base_dir}/msmarco_data/msmarco-docdev-qrels.tsv",
-        f"{base_dir}/msmarco_checkpoints/msmarco-docdev-qrels.tsv",
+        f"{search_dir}/msmarco_data/msmarco-docdev-qrels.tsv",
+        f"{search_dir}/msmarco_checkpoints/msmarco-docdev-qrels.tsv",
         "quality-eval/msmarco-docdev-qrels.tsv",
         "/home/azureuser/msmarco_data/msmarco-docdev-qrels.tsv",
         "/home/azureuser/msmarco_checkpoints/msmarco-docdev-qrels.tsv",
@@ -58,12 +58,12 @@ def get_queries_with_qrels(qrels_file: str, max_queries: int = 10) -> list:
 
 
 def create_subset_with_qrels(
-    base_dir: str = "/home/azureuser", subset_queries: int = 10
+    search_dir: str = "/home/azureuser", max_subset_queries: int = 10
 ):
     """Create query subset using only queries with qrels"""
 
     # Find qrels file
-    qrels_file = find_qrels_file(base_dir)
+    qrels_file = find_qrels_file(search_dir)
 
     if not qrels_file:
         print("❌ No qrels file found")
@@ -72,7 +72,7 @@ def create_subset_with_qrels(
     print(f"📚 Using qrels file: {qrels_file}")
 
     # Get queries that have qrels
-    query_ids_with_qrels = get_queries_with_qrels(qrels_file, subset_queries)
+    query_ids_with_qrels = get_queries_with_qrels(qrels_file, max_subset_queries)
 
     if not query_ids_with_qrels:
         print("❌ No queries with qrels found")
@@ -83,8 +83,8 @@ def create_subset_with_qrels(
 
     # Find original MSMARCO queries file
     query_file_locations = [
-        f"{base_dir}/msmarco_data/msmarco-docdev-queries.tsv",
-        f"{base_dir}/msmarco_checkpoints/msmarco-docdev-queries.tsv",
+        f"{search_dir}/msmarco_data/msmarco-docdev-queries.tsv",
+        f"{search_dir}/msmarco_checkpoints/msmarco-docdev-queries.tsv",
         "/home/azureuser/msmarco_data/msmarco-docdev-queries.tsv",
         "/home/azureuser/msmarco_checkpoints/msmarco-docdev-queries.tsv",
     ]
@@ -126,7 +126,7 @@ def create_subset_with_qrels(
     print(f"📊 Loaded {len(queries_dict)} total queries")
 
     # Create quick queries file with only queries that have qrels
-    quick_dir = Path(f"{base_dir}/quick_data")
+    quick_dir = Path(f"{search_dir}/quick_data")
     quick_dir.mkdir(exist_ok=True)
 
     quick_queries_file = quick_dir / "quick_queries.tsv"
@@ -159,4 +159,4 @@ if __name__ == "__main__":
     if result:
         print(f"\n🎯 Success! Use this query file: {result}")
     else:
-        print(f"\n❌ Failed to create subset")
+        print("\n❌ Failed to create subset")
