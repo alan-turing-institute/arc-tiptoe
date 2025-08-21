@@ -8,6 +8,10 @@ import subprocess
 import time
 from pathlib import Path
 
+import runExp_refactor
+from analyse_results import TiptoeAnalyser
+from use_qrels_queries import create_subset_with_qrels
+
 
 class SimpleQuickPipeline:
     """Simple pipeline that just reduces query/doc count"""
@@ -32,7 +36,6 @@ class SimpleQuickPipeline:
         self.quick_dir.mkdir(exist_ok=True)
 
         # Use the qrels-based query creation
-        from use_qrels_queries import create_subset_with_qrels
 
         query_file = create_subset_with_qrels(str(self.base_dir), self.subset_queries)
 
@@ -59,51 +62,55 @@ class SimpleQuickPipeline:
     def create_quick_config(self, query_file: str, optimization: str = "basic") -> str:
         """Create config that uses existing data with fewer queries"""
 
-        # Base config
+        # Base config - match the format expected by clustering/search.py
         config = {
-            "pca_components_file": str(
+            "PCA_COMPONENTS_FILE": str(
                 self.base_dir / "data" / "embeddings" / "pca_components_192.txt"
             ),
-            "query_file": str(query_file),
-            "cluster_file_location": str(self.base_dir / "data" / "clusters") + "/",
-            "url_bundle_base_dir": str(self.base_dir / "data" / "clusters") + "/",
-            "index_file": str(
+            "QUERY_FILE": str(query_file),
+            "CLUSTER_FILE_LOCATION": str(self.base_dir / "data" / "clusters") + "/",
+            "URL_BUNDLE_BASE_DIR": str(self.base_dir / "data" / "clusters") + "/",
+            "INDEX_FILE": str(
                 self.base_dir / "data" / "artifact" / "dim192" / "index.faiss"
             ),
-            "is_text": True,
-            "run_msmarco_dev_queries": True,
-            "filter_badwords": False,
-            "short_exp": True,
-            "max_docs_per_cluster": self.docs_per_cluster,
-            # THIS is the key parameter that controls how many clusters to search
-            "num_clusters_to_search": self.num_clusters,  # NEW: Number of clusters to search per query
-            # These are different - total clusters available in the system
-            "total_num_clusters": 1000,  # Total clusters in the dataset
+            "IS_TEXT": True,
+            "RUN_MSMARCO_DEV_QUERIES": True,
+            "FILTER_BADWORDS": False,
+            "SHORT_EXP": True,
+            "MAX_DOCS_PER_CLUSTER": self.docs_per_cluster,
+            # KEY: This controls how many clusters to search per query
+            "NUM_CLUSTERS": self.num_clusters,  # This is what clustering/search.py uses
+            # Add other required globals that clustering/search.py expects
+            "CENTROIDS_FILE": str(
+                self.base_dir / "data" / "embeddings" / "centroids.txt"
+            ),
+            "BADWORDS_FILE": None,
+            "IMG_RESULTS_DIR": None,
         }
 
-        # Apply optimization settings
+        # Apply optimization settings using the correct keys for clustering/search.py
         if optimization == "basic":
             config.update(
                 {
-                    "run_pca": False,
-                    "run_url_filter": False,
-                    "url_filter_by_cluster": False,
+                    "RUN_PCA": False,
+                    "RUN_URL_FILTER": False,
+                    "URL_FILTER_BY_CLUSTER": False,
                 }
             )
         elif optimization == "url_cluster":
             config.update(
                 {
-                    "run_pca": False,
-                    "run_url_filter": True,
-                    "url_filter_by_cluster": True,
+                    "RUN_PCA": False,
+                    "RUN_URL_FILTER": True,
+                    "URL_FILTER_BY_CLUSTER": True,
                 }
             )
         elif optimization == "pca":
             config.update(
                 {
-                    "run_pca": True,
-                    "run_url_filter": True,
-                    "url_filter_by_cluster": True,
+                    "RUN_PCA": True,
+                    "RUN_URL_FILTER": True,
+                    "URL_FILTER_BY_CLUSTER": True,
                 }
             )
 
@@ -117,28 +124,94 @@ class SimpleQuickPipeline:
         print(f"✅ Config created: {config_file}")
         print(f"   Clusters to search per query: {self.num_clusters}")
         print(f"   Optimization: {optimization}")
-        print(f"   PCA: {config['run_pca']}")
-        print(f"   URL clustering: {config['run_url_filter']}")
+        print(f"   PCA: {config['RUN_PCA']}")
+        print(f"   URL clustering: {config['RUN_URL_FILTER']}")
 
         return str(config_file)
 
-    def setup(self, optimization: str = "basic"):
-        """Simple setup - create query subset and config"""
-        print(
-            f"=== Simple Quick Setup ({self.num_clusters} clusters, {optimization}) ==="
+
+def run_quick_quality_test(
+    config_file: str, results_dir: str = None, experiment_name: str = "quick"
+):
+    """Run quality test using clustering/search.py directly"""
+    print(f"=== Quick Quality Test ({experiment_name}) ===")
+
+    # Use clustering/search.py directly - this is the real multi-cluster search
+    search_script = Path("clustering") / "search.py"
+
+    if not search_script.exists():
+        print("❌ Could not find clustering/search.py")
+        return None
+
+    print(f"🔍 Using clustering/search.py for multi-cluster search")
+
+    cmd = ["python3", "search.py", config_file]
+    cwd = "clustering"
+
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=300,  # Longer timeout for multi-cluster
+            check=False,
         )
 
-        query_file = self.create_subset_queries_only()
-        config_file = self.create_quick_config(query_file, optimization)
+        if result.returncode == 0:
+            print("✅ Quality test completed")
 
-        print("\n✅ Quick setup complete!")
-        print(f"   Queries: {self.subset_queries}")
-        print(f"   Docs per cluster: {self.docs_per_cluster}")
-        print(f"   Clusters: {self.num_clusters}")
-        print(f"   Optimization: {optimization}")
-        print("   Using existing: embeddings, clusters, PCA, FAISS index")
+            # Save results
+            if results_dir:
+                results_path = Path(results_dir)
+                results_path.mkdir(exist_ok=True)
 
-        return config_file
+                quality_file = results_path / f"{experiment_name}_quality.log"
+                with open(quality_file, "w", encoding="utf-8") as f:
+                    f.write(result.stdout)
+
+                print(f"📁 Quality results saved to: {quality_file}")
+
+                # Enhanced summary for multi-cluster
+                lines = result.stdout.split("\n")
+                query_count = len([line for line in lines if "Query:" in line])
+                result_count = len(
+                    [
+                        line
+                        for line in lines
+                        if line.strip()
+                        and not line.startswith("Query:")
+                        and not line.startswith("---------------")
+                    ]
+                )
+
+                # Parse cluster information from stderr
+                stderr_lines = result.stderr.split("\n")
+                cluster_info = [
+                    line for line in stderr_lines if "Nearest clusters:" in line
+                ]
+
+                print(
+                    f"📊 Processed {query_count} queries, {result_count} total results"
+                )
+                if cluster_info:
+                    print(
+                        f"🔍 Multi-cluster info: {cluster_info[0] if cluster_info else 'N/A'}"
+                    )
+
+            return result.stdout
+        else:
+            print(f"❌ Quality test failed: {result.stderr}")
+            print(f"   Command: {' '.join(cmd)}")
+            print(f"   Working dir: {cwd}")
+            return None
+
+    except subprocess.TimeoutExpired:
+        print("❌ Quality test timed out")
+        return None
+    except Exception as e:
+        print(f"❌ Quality test error: {e}")
+        return None
 
 
 def run_quick_performance_test(
@@ -150,8 +223,6 @@ def run_quick_performance_test(
 ):
     """Run performance test with existing preprocessing"""
     print(f"=== Quick Performance Test ({experiment_name}) ===")
-
-    import runExp_refactor
 
     cluster = runExp_refactor.LocalTiptoeCluster(
         num_embed_servers=num_embed_servers,
@@ -191,75 +262,6 @@ def run_quick_performance_test(
         cluster.cleanup()
 
 
-def run_quick_quality_test(
-    config_file: str, results_dir: str = None, experiment_name: str = "quick"
-):
-    """Run quality test with subset queries"""
-    print(f"=== Quick Quality Test ({experiment_name}) ===")
-
-    # Find search.py
-    search_dirs = ["cluster/kmeans", "clustering"]
-    search_py_dir = None
-
-    for dir_path in search_dirs:
-        if (Path(dir_path) / "search.py").exists():
-            search_py_dir = dir_path
-            break
-
-    if not search_py_dir:
-        print("❌ Could not find search.py")
-        return None
-
-    cmd = ["python3", "search.py", config_file]
-
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=search_py_dir,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-
-        if result.returncode == 0:
-            print("✅ Quality test completed")
-
-            # Save results
-            if results_dir:
-                results_path = Path(results_dir)
-                results_path.mkdir(exist_ok=True)
-
-                quality_file = results_path / f"{experiment_name}_quality.log"
-                with open(quality_file, "w", encoding="utf-8") as f:
-                    f.write(result.stdout)
-
-                print(f"📁 Quality results saved to: {quality_file}")
-
-                # Show summary
-                lines = result.stdout.split("\n")
-                query_count = len([line for line in lines if "Query:" in line])
-                result_count = len(
-                    [
-                        line
-                        for line in lines
-                        if line.strip() and not line.startswith("Query:")
-                    ]
-                )
-                print(
-                    f"📊 Processed {query_count} queries, {result_count} total results"
-                )
-
-            return result.stdout
-        else:
-            print(f"❌ Quality test failed: {result.stderr}")
-            return None
-
-    except subprocess.TimeoutExpired:
-        print("❌ Quality test timed out")
-        return None
-
-
 def run_multi_cluster_experiments(
     base_dir: str,
     subset_queries: int = 10,
@@ -297,7 +299,11 @@ def run_multi_cluster_experiments(
                     num_clusters=num_clusters,
                 )
 
-                config_file = pipeline.setup(optimization)
+                # Create subset queries and config
+                query_file = pipeline.create_subset_queries_only()
+                config_file = pipeline.create_quick_config(
+                    str(query_file), optimization
+                )
 
                 # Create experiment-specific results directory
                 exp_results_dir = multi_results_dir / experiment_name
@@ -400,7 +406,6 @@ def analyze_multi_cluster_results(results_dir: str):
     print(f"\n📊 Analyzing multi-cluster results from: {results_dir}")
 
     # Use the existing analyzer
-    from analyse_results import TiptoeAnalyser
 
     # Find all experiment directories
     exp_dirs = [d for d in results_path.iterdir() if d.is_dir() and "c_" in d.name]
@@ -577,8 +582,6 @@ def main():
     if args.analyze_multi:
         results_dir = Path(args.preamble) / "quick_data" / "multi_cluster_results"
         analyze_multi_cluster_results(str(results_dir))
-        return
-
     # Single experiment (original functionality)
     pipeline = SimpleQuickPipeline(
         base_dir=args.preamble,
@@ -586,7 +589,8 @@ def main():
         docs_per_cluster=args.docs_per_cluster,
         num_clusters=args.num_clusters,
     )
-    config_file = pipeline.setup(args.optimization)
+    query_file = pipeline.create_subset_queries_only()
+    config_file = pipeline.create_quick_config(str(query_file), args.optimization)
 
     # Create results directory
     results_dir = pipeline.quick_dir / "results"
