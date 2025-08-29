@@ -111,7 +111,7 @@ def compute_mrr(result_dict, real_dict):
 def main():
     """Main entry point"""
     results = read_top_results(sys.argv[1])
-    real = read_ranked_qrel("/home/ubuntu/msmarco/msmarco-docdev-qrels.tsv")
+    real = read_ranked_qrel("/home/azureuser/msmarco_data/msmarco-docdev-qrels.tsv")
     mrr = compute_mrr(results, real)
     print(f"MRR@{MRR_RANK}: {mrr}")
 

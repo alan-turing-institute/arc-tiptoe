@@ -122,8 +122,20 @@ class LocalTiptoeCluster:
             cmd, cwd=self.search_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         self.processes.append(("coordinator", 0, proc))
-        time.sleep(10)
+
+        # Wait longer for coordinator to be ready
+        print("Waiting for coordinator to initialize...")
+        time.sleep(60)  # Increased from 10 to 60 seconds
+
+        # Check if coordinator is still running
+        if proc.poll() is not None:
+            print(f"❌ Coordinator failed to start (exit code: {proc.poll()})")
+            _, stderr = proc.communicate()
+            print(f"Error: {stderr.decode()}")
+            return False
+
         print("Coordinator started")
+        return True
 
     def run_latency_experiment(self):
         """Run latency experiment"""
@@ -254,26 +266,242 @@ class LocalTiptoeCluster:
         print("All throughput experiments completed")
         return results
 
+    def check_servers_running(self):
+        """Check if servers are still running"""
+        running_servers = []
+        for proc_type, idx, proc in self.processes:
+            if proc.poll() is None:  # Still running
+                running_servers.append(f"{proc_type}-{idx}")
+            else:
+                print(
+                    f"⚠️  Server {proc_type}-{idx} has stopped (exit code: {proc.poll()})"
+                )
+                # Print any error output
+                _, stderr = proc.communicate()
+                if stderr:
+                    print(f"   Error: {stderr.decode()}")
+
+        print(f"   🟢 Running servers: {running_servers}")
+        return len(running_servers) > 0
+
+    def run_throughput_experiment_for_clusters(self, num_clusters=1):
+        """Run throughput experiments and save with cluster-specific names"""
+        print(f"Running throughput experiments for {num_clusters} clusters...")
+
+        # First check if servers are still running
+        if not self.check_servers_running():
+            print("❌ No servers running - cannot run throughput experiments")
+            return {}
+
+        # Also test coordinator connectivity
+        try:
+            test_cmd = [
+                "go",
+                "run",
+                ".",
+                "client-latency",
+                "127.0.0.1",
+                "-preamble",
+                self.preamble,
+            ]
+            # Quick test with timeout
+            test_result = subprocess.run(
+                test_cmd,
+                cwd=self.search_dir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+
+            if test_result.returncode != 0:
+                print(f"❌ Coordinator connectivity test failed: {test_result.stderr}")
+                return {}
+            else:
+                print("✅ Coordinator connectivity verified")
+
+        except subprocess.TimeoutExpired:
+            print("❌ Coordinator connectivity test timed out")
+            return {}
+        except Exception as e:
+            print(f"❌ Coordinator connectivity test error: {e}")
+            return {}
+
+        results = {}
+        prefix = "local-img/" if self.image_search else "local-text/"
+        os.makedirs(prefix, exist_ok=True)
+
+        # Embedding throughput
+        print("  📊 Running embedding throughput...")
+        cmd = [
+            "go",
+            "run",
+            ".",
+            "client-tput-embed",
+            "127.0.0.1",
+            "-preamble",
+            self.preamble,
+        ]
+        if self.image_search:
+            cmd.extend(["-image_search", "true"])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.search_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=600,
+            )
+
+            if result.returncode == 0:
+                filename = f"{prefix}{num_clusters}c_tput_embed.log"
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(result.stdout)
+                results["embed_tput"] = result.stdout
+                print(f"    ✅ Embed throughput saved to: {filename}")
+            else:
+                print(f"    ❌ Embed throughput failed: {result.stderr}")
+
+        except Exception as e:
+            print(f"    ❌ Embed throughput error: {e}")
+
+        # URL throughput
+        print("  📊 Running URL throughput...")
+        cmd = [
+            "go",
+            "run",
+            ".",
+            "client-tput-url",
+            "127.0.0.1",
+            "-preamble",
+            self.preamble,
+        ]
+        if self.image_search:
+            cmd.extend(["-image_search", "true"])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.search_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=600,
+            )
+
+            if result.returncode == 0:
+                filename = f"{prefix}{num_clusters}c_tput_url.log"
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(result.stdout)
+                results["url_tput"] = result.stdout
+                print(f"    ✅ URL throughput saved to: {filename}")
+            else:
+                print(f"    ❌ URL throughput failed: {result.stderr}")
+
+        except Exception as e:
+            print(f"    ❌ URL throughput error: {e}")
+
+        # Offline throughput
+        print("  📊 Running offline throughput...")
+        cmd = [
+            "go",
+            "run",
+            ".",
+            "client-tput-offline",
+            "127.0.0.1",
+            "-preamble",
+            self.preamble,
+        ]
+        if self.image_search:
+            cmd.extend(["-image_search", "true"])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.search_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=600,
+            )
+
+            if result.returncode == 0:
+                filename = f"{prefix}{num_clusters}c_tput_offline.log"
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(result.stdout)
+                results["offline_tput"] = result.stdout
+                print(f"    ✅ Offline throughput saved to: {filename}")
+            else:
+                print(f"    ❌ Offline throughput failed: {result.stderr}")
+
+        except Exception as e:
+            print(f"    ❌ Offline throughput error: {e}")
+
+        print(f"  ✅ Throughput experiments completed for {num_clusters} clusters")
+        return results
+
     def run_quality_experiment(
         self, num_clusters=1, optimization="basic", query_file=None
     ):
-        """Run quality experiment with multi-cluster search"""
+        """Run quality experiment using clustering/search.py with parallelization"""
         print(
             f"Running quality experiment: {num_clusters} clusters, {optimization} optimization..."
         )
 
+        # Use the full query file if not specified
+        if query_file is None:
+            # Try to find the FULL query file first (not the subset)
+            possible_query_files = [
+                f"{self.preamble}/msmarco_data/msmarco-docdev-queries.tsv",  # Full dataset first!
+                f"{self.preamble}/data/msmarco-docdev-queries.tsv",
+                f"{self.preamble}/quick_data/full_queries.tsv",  # If you created this
+                f"{self.preamble}/quick_data/quick_queries.tsv",  # Fallback to subset
+            ]
+
+            for qf in possible_query_files:
+                if os.path.exists(qf):
+                    query_file = qf
+                    # Check how many queries are in this file
+                    with open(qf, "r") as f:
+                        query_count = len(f.readlines())
+                    print(f"   📁 Using query file: {qf} ({query_count} queries)")
+
+                    # Only use files with substantial number of queries
+                    if (
+                        query_count >= 1000
+                    ):  # Require at least 1000 queries for full experiment
+                        break
+                    else:
+                        print(
+                            f"   ⚠️  File {qf} only has {query_count} queries, looking for larger dataset..."
+                        )
+                        query_file = None
+
+            if query_file is None:
+                print(
+                    "   ❌ No substantial query file found! Need file with 1000+ queries"
+                )
+                print("   📋 Available files:")
+                for qf in possible_query_files:
+                    if os.path.exists(qf):
+                        with open(qf, "r") as f:
+                            count = len(f.readlines())
+                        print(f"     {qf}: {count} queries")
+                return None
+
         # Create config for clustering/search.py
         config = {
             "pca_components_file": f"{self.preamble}/data/embeddings/pca_components_192.txt",
-            "query_file": query_file
-            or f"{self.preamble}/quick_data/quick_queries.tsv",  # This will be the full query set
+            "query_file": query_file,
             "cluster_file_location": f"{self.preamble}/data/clusters/",
             "url_bundle_base_dir": f"{self.preamble}/data/clusters/",
             "index_file": f"{self.preamble}/data/artifact/dim192/index.faiss",
             "is_text": True,
             "run_msmarco_dev_queries": True,
             "filter_badwords": False,
-            "short_exp": False,  # Set to False for full experiment
+            "short_exp": False,  # CRITICAL: Must be False for full dataset
             "num_clusters": num_clusters,
             "centroids_file": f"{self.preamble}/data/embeddings/centroids.txt",
             "badwords_file": None,
@@ -298,14 +526,19 @@ class LocalTiptoeCluster:
                 }
             )
 
-        # Save config in clustering directory where search.py expects it
+        # Save config in clustering directory
         config_filename = f"multi_cluster_config_{num_clusters}c_{optimization}.json"
         config_file = f"clustering/{config_filename}"
+
+        print(f"   💾 Saving config to: {config_file}")
+        print(
+            f"   🔧 Config: short_exp={config['short_exp']}, query_file={config['query_file']}"
+        )
 
         with open(config_file, "w") as f:
             json.dump(config, f, indent=2)
 
-        # Run clustering/search.py with much longer timeout for full dataset
+        # Run clustering/search.py
         cmd = ["python3", "search.py", config_filename]
 
         try:
@@ -314,7 +547,7 @@ class LocalTiptoeCluster:
                 cwd="clustering",
                 capture_output=True,
                 text=True,
-                timeout=3600,  # 1 hour timeout for full experiment
+                timeout=7200,  # 2 hours for full dataset
                 check=False,
             )
 
@@ -349,57 +582,71 @@ class LocalTiptoeCluster:
                 return None
 
         except subprocess.TimeoutExpired:
-            print(f"❌ Quality experiment timed out after 1 hour")
+            print(f"❌ Quality experiment timed out after 2 hours")
             return None
         except Exception as e:
             print(f"❌ Quality experiment error: {e}")
             return None
 
-    def run_multi_cluster_experiments(self, cluster_configs=None, optimizations=None):
-        """Run experiments across multiple cluster configurations"""
+    def run_multi_cluster_experiments_parallel(
+        self, cluster_configs=None, optimizations=None
+    ):
+        """Run multi-cluster experiments in parallel"""
+        import concurrent.futures
 
         if cluster_configs is None:
             cluster_configs = [1, 2, 4]
         if optimizations is None:
             optimizations = ["basic", "pca"]
 
-        print("🚀 Running multi-cluster experiments...")
+        print("🚀 Running multi-cluster experiments in parallel...")
         print(f"   Cluster configs: {cluster_configs}")
         print(f"   Optimizations: {optimizations}")
 
         results = []
 
+        # Run quality experiments in parallel
+        quality_experiments = []
         for num_clusters in cluster_configs:
             for optimization in optimizations:
+                quality_experiments.append((num_clusters, optimization))
+
+        print("\n📊 Running quality experiments...")
+        # DON'T use servers for quality experiments yet - run them separately
+
+        # First, run quality experiments WITHOUT starting servers (use existing running servers)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_experiment = {
+                executor.submit(
+                    self.run_quality_experiment, num_clusters, optimization
+                ): (num_clusters, optimization)
+                for num_clusters, optimization in quality_experiments
+            }
+
+            for future in concurrent.futures.as_completed(future_to_experiment):
+                num_clusters, optimization = future_to_experiment[future]
                 experiment_name = f"{num_clusters}c_{optimization}"
-                print(f"\n🔬 Experiment: {experiment_name}")
 
                 try:
-                    # Run quality experiment
-                    print("  🔍 Running quality...")
-                    quality_results = self.run_quality_experiment(
-                        num_clusters=num_clusters, optimization=optimization
-                    )
+                    quality_results = future.result()
+                    success = quality_results is not None
 
                     result = {
                         "experiment": experiment_name,
                         "num_clusters": num_clusters,
                         "optimization": optimization,
-                        "quality_success": quality_results is not None,
+                        "quality_success": success,
                     }
 
                     results.append(result)
 
-                    if quality_results:
-                        print(f"  ✅ {experiment_name}: Success")
+                    if success:
+                        print(f"✅ {experiment_name}: Quality Success")
                     else:
-                        print(f"  ❌ {experiment_name}: Failed")
-
-                    # Brief pause between experiments
-                    time.sleep(5)
+                        print(f"❌ {experiment_name}: Quality Failed")
 
                 except Exception as e:
-                    print(f"  ❌ {experiment_name}: Error - {e}")
+                    print(f"❌ {experiment_name}: Quality Error - {e}")
                     results.append(
                         {
                             "experiment": experiment_name,
@@ -410,13 +657,47 @@ class LocalTiptoeCluster:
                         }
                     )
 
+        # Run throughput experiments WHILE servers are still running
+        print("\n⚡ Running throughput experiments...")
+        for num_clusters in cluster_configs:
+            experiment_name = f"{num_clusters}c_throughput"
+            print(f"🔬 {experiment_name}")
+
+            try:
+                # Servers should still be running from the main startup
+                throughput_results = self.run_throughput_experiment_for_clusters(
+                    num_clusters
+                )
+                throughput_success = bool(throughput_results)
+
+                # Update corresponding quality results
+                for result in results:
+                    if result["num_clusters"] == num_clusters:
+                        result["throughput_success"] = throughput_success
+
+                if throughput_success:
+                    print(f"✅ {experiment_name}: Success")
+                else:
+                    print(f"❌ {experiment_name}: Failed")
+
+            except Exception as e:
+                print(f"❌ {experiment_name}: Error - {e}")
+                # Update results
+                for result in results:
+                    if result["num_clusters"] == num_clusters:
+                        result["throughput_success"] = False
+                        result["throughput_error"] = str(e)
+
         # Summary
         print("\n📋 Multi-Cluster Experiments Summary:")
-        print(f"{'Experiment':<12} {'Quality':<8}")
-        print("-" * 25)
-        for result in results:
+        print(f"{'Experiment':<12} {'Quality':<8} {'Throughput':<10}")
+        print("-" * 35)
+        for result in sorted(
+            results, key=lambda x: (x["num_clusters"], x["optimization"])
+        ):
             qual = "✅" if result.get("quality_success", False) else "❌"
-            print(f"{result['experiment']:<12} {qual:<8}")
+            tput = "✅" if result.get("throughput_success", False) else "❌"
+            print(f"{result['experiment']:<12} {qual:<8} {tput:<10}")
 
         return results
 
@@ -454,7 +735,7 @@ def main(args):
         # Check if multi-cluster mode
         if args.multi_cluster:
             # Run multi-cluster experiments
-            cluster.run_multi_cluster_experiments(
+            cluster.run_multi_cluster_experiments_parallel(
                 cluster_configs=args.clusters, optimizations=args.optimizations
             )
         elif args.quality_only:

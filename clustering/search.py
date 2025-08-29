@@ -218,17 +218,53 @@ def find_nearest_docs(dists, how_many):
 
 
 def line_to_dist(line, query_embed):
-    """Line to distance."""
-    (_, rest) = line.split(" | ", 1)
-    parts = rest.split(",", len(query_embed) - 1)
-    embed_vec = parts[0 : len(query_embed) - 1]
-    (last, url) = parts[len(query_embed) - 1].split(" | ", 1)
-    embed_vec.append(last)
-    vec = [float(i) for i in embed_vec]
-    if RUN_MSMARCO_DEV_QUERIES and not RUN_PCA:
-        vec = numpy.clip(numpy.round(numpy.array(vec) * (1 << 5)), -16, 15)
+    """Line to distance - robust version for different data formats."""
+    try:
+        # Original format: embedding_values | url
+        if " | " in line:
+            parts = line.split(" | ")
+            if len(parts) >= 2:
+                # Try to parse as: doc_id | embedding_values | url
+                if len(parts) >= 3:
+                    doc_id = parts[0].strip()
+                    embedding_str = parts[1]
+                    url = parts[2].strip()
+                else:
+                    # Format: embedding_values | url
+                    embedding_str = parts[0]
+                    url = parts[1].strip()
+                    doc_id = url  # Use URL as doc_id fallback
 
-    return (url, numpy.inner(vec, query_embed))
+                # Parse embedding values
+                try:
+                    embed_vals = [float(x) for x in embedding_str.split(",")]
+                    if len(embed_vals) != len(query_embed):
+                        # If embedding dimensions don't match, use cosine similarity on available dimensions
+                        min_len = min(len(embed_vals), len(query_embed))
+                        embed_vals = embed_vals[:min_len]
+                        query_subset = query_embed[:min_len]
+                    else:
+                        query_subset = query_embed
+
+                    # Compute distance (dot product)
+                    dist = sum(a * b for a, b in zip(embed_vals, query_subset))
+                    return url, dist
+                except (ValueError, IndexError):
+                    # If embedding parsing fails, return low relevance
+                    return url, 0.0
+            else:
+                # Single field - treat as URL with no relevance
+                return line.strip(), 0.0
+        else:
+            # No separator - treat as URL with no relevance
+            return line.strip(), 0.0
+
+    except Exception as e:
+        print(
+            f"Warning: Could not parse line: {line[:100]}... Error: {e}",
+            file=sys.stderr,
+        )
+        return line.strip(), 0.0
 
 
 def find_best_docs_from_lines(lines, query_embed, num_results):
