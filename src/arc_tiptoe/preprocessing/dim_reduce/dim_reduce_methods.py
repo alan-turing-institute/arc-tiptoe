@@ -77,7 +77,7 @@ def train_pca(pca_compents_file, train_vecs, new_dim, logger=None):
 
 def transform_embeddings(pca_components, in_file, out_file, logger=None):
     """Transform embeddings using PCA components."""
-    with open(in_file, "r", encoding="utf-8") as f:
+    with open(in_file, encoding="utf-8") as f:
         lines = [line for line in f.readlines() if line.strip()]
     if len(lines) == 0:
         with open(out_file, "w", encoding="utf-8") as f:
@@ -91,12 +91,8 @@ def transform_embeddings(pca_components, in_file, out_file, logger=None):
     ]
     if logger:
         logger.info("Loaded %d embeddings from %s", len(in_embeddings), in_file)
-    else:
-        print(f"Loaded {len(in_embeddings)} embeddings from {in_file}")
     if logger:
         logger.info("in file = %s", in_file)
-    else:
-        print(f"in file = {in_file}")
     if logger:
         logger.info(
             "len of embeddings = %d, len of lines =%d, len of in_embeddings_text = %d",
@@ -104,11 +100,7 @@ def transform_embeddings(pca_components, in_file, out_file, logger=None):
             len(lines),
             len(in_embeddings_text),
         )
-    else:
-        print(
-            f"len of embeddings = {len(in_embeddings)}, len of lines = {len(lines)}"
-            f", len of in_embeddings_text = {len(in_embeddings_text)}",
-        )
+
     in_embeddings = [adjust_precision(embed) for embed in in_embeddings]
     out_embeddings = run_pca(pca_components, in_embeddings)
 
@@ -116,5 +108,14 @@ def transform_embeddings(pca_components, in_file, out_file, logger=None):
     if not os.path.exists(os.path.dirname(out_file)):
         os.makedirs(os.path.dirname(out_file))
     with open(out_file, "w", encoding="utf-8") as f:
-        for docid, embed, url in zip(docids, out_embeddings, urls):
-            f.write(f"{docid} | {','.join(map(str, embed))} | {url}")
+        # convert to integers
+        lines = []
+        for i in range(len(out_embeddings)):
+            embed_str = ",".join([str(int(ch)) for ch in out_embeddings[i]])
+            line = f"{docids[i]} | {embed_str} | {urls[i].strip()}\n"
+            lines.append(line)
+        if logger:
+            logger.info(
+                "Writing %d transformed embeddings to %s", len(out_embeddings), out_file
+            )
+        f.write("".join(lines))
