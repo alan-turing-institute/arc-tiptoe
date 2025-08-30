@@ -7,6 +7,7 @@ import os
 from abc import ABC, abstractmethod
 
 import numpy as np
+from tqdm import tqdm
 
 import arc_tiptoe.preprocessing.dim_reduce.dim_reduce_methods as drm
 
@@ -62,22 +63,26 @@ class DimReducePCA(DimReduce):
         self.logger.info("Initialized PCA dimensionality reduction")
         self.pca_components = None
 
+    def _transform_embedding(self, idx):
+        """Transform a single embedding using PCA components."""
+        input_file = f"{self.config.clustering_path}/cluster_{idx}.txt"
+        output_file = (
+            f"{self.dim_red_path}/pca_{self.dim_red_dimension}/cluster_{idx}.txt"
+        )
+
+        if not os.path.exists(output_file):
+            self.logger.info("Transforming embeddings for cluster %d", idx)
+            drm.transform_embeddings(self.pca_components, input_file, output_file)
+            self.logger.info("Finished processing cluster %d", idx)
+        else:
+            self.logger.info("Output file for cluster %d already exists, skipping", idx)
+
     def _transform_embeddings(self):
         self.logger.info("Transform embeddings using PCA components")
-        for i in range(self.num_clusters):
-            input_file = f"{self.config.clustering_path}/cluster_{i}.txt"
-            output_file = (
-                f"{self.dim_red_path}/pca_{self.dim_red_dimension}/cluster_{i}.txt"
-            )
-
-            if not os.path.exists(output_file):
-                self.logger.info("Transforming embeddings for cluster %d", i)
-                drm.transform_embeddings(self.pca_components, input_file, output_file)
-                self.logger.info("Finished processing cluster %d", i)
-            else:
-                self.logger.info(
-                    "Output file for cluster %d already exists, skipping", i
-                )
+        for idx in tqdm(
+            range(self.num_clusters), desc="Transforming embedding clusters"
+        ):
+            self._transform_embedding(idx)
 
     def _transform_urls(self):
         self.logger.info("Transform url clusters using PCA components")
@@ -111,7 +116,4 @@ class DimReducePCA(DimReduce):
         self._transform_embeddings()
 
         # Transform the url clusters using the PCA components
-        self._transform_urls()
-        self._transform_urls()
-        self._transform_urls()
         self._transform_urls()

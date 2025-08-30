@@ -6,6 +6,7 @@ import gc
 import glob
 import logging
 import os
+from abc import ABC, abstractmethod
 
 import numpy as np
 import torch
@@ -16,7 +17,7 @@ from arc_tiptoe.preprocessing.embedding.tt_models import load_sentence_transform
 from arc_tiptoe.preprocessing.utils.config import PreProcessConfig
 
 
-class Embedder:
+class Embedder(ABC):
     """Base class for all embedding methods. The embeddings are placed in the
     subdirectory 'embeddings' within the embedding directory."""
 
