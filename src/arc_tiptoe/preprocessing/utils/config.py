@@ -180,8 +180,16 @@ class PreProcessConfig:
         TODO: update when finalised directory structure
         """
         os.makedirs(os.path.join(BASE_DIR, self.uuid), exist_ok=True)
-        os.makedirs(os.path.join(BASE_DIR, self.uuid, "embedding"), exist_ok=True)
-        os.makedirs(os.path.join(BASE_DIR, self.uuid, "clusters"), exist_ok=True)
+
+        self.embeddings_path = os.path.join(BASE_DIR, self.uuid, "embedding")
+        os.makedirs(self.embeddings_path, exist_ok=True)
+
+        self.clustering_path = os.path.join(BASE_DIR, self.uuid, "clusters")
+        os.makedirs(self.clustering_path, exist_ok=True)
+
+        self.dim_red_path = os.path.join(BASE_DIR, self.uuid, "dim_red")
+        os.makedirs(self.dim_red_path, exist_ok=True)
+
         os.makedirs(os.path.join(BASE_DIR, self.uuid, "logs"), exist_ok=True)
         os.makedirs(os.path.join(BASE_DIR, self.uuid, "artifact"), exist_ok=True)
 
