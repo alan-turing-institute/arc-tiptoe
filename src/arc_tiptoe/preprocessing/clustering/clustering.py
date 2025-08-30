@@ -132,7 +132,7 @@ class Cluter:
     def _parse_file(self, cluster_file):
         """Parse a cluster file and return its contents."""
         contents = []
-        with open(cluster_file, "r", encoding="utf-8") as f:
+        with open(cluster_file, encoding="utf-8") as f:
             lines = f.readlines()
             for line in tqdm(lines, desc=f"Parsing {cluster_file}"):
                 if len(line) <= 1:
@@ -189,7 +189,7 @@ class Cluter:
                 range(int(np.ceil(len(contents) / float(self.urls_per_bundle)))),
                 desc="Dividing contents arbitrarily",
             ):
-                centroids[i] = centroids[list(assignment_dict.keys())[0]]
+                centroids[i] = centroids[next(iter(assignment_dict.keys()))]
                 upper_bound = min(i + 1) * self.urls_per_bundle, len(contents)
                 assignment_dict[i] = [
                     contents[j] for j in range(i * self.urls_per_bundle, upper_bound)
