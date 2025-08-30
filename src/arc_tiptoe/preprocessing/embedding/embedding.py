@@ -249,9 +249,6 @@ class Embedder(ABC):
 class SentenceTransformerEmbedder(Embedder):
     """Embedder using SentenceTransformer models."""
 
-    def __init__(self, config):
-        super().__init__(config)
-
     def load_model(self, model_name: str, device: str):
         """Load the SentenceTransformer model."""
         return tt_models.load_sentence_transformer(model_name, device=device)

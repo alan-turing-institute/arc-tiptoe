@@ -12,7 +12,7 @@ from tqdm import tqdm
 import arc_tiptoe.preprocessing.dim_reduce.dim_reduce_methods as drm
 
 
-class DimReduce(ABC):
+class DimReducer(ABC):
     """Base class for all dimensionality reduction methods."""
 
     def __init__(self, config):
@@ -55,7 +55,7 @@ class DimReduce(ABC):
         raise NotImplementedError()
 
 
-class DimReducePCA(DimReduce):
+class DimReducePCA(DimReducer):
     """Dimensionality reduction using PCA."""
 
     def __init__(self, config):
