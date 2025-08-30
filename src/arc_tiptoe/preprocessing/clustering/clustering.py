@@ -4,6 +4,7 @@ Clustering class for document embeddings.
 
 import logging
 import os
+import zlib
 
 import faiss
 import numpy as np
@@ -43,6 +44,9 @@ class Cluter:
             self.embeddings = np.load(f"{self.config.embeddings_path}/embeddings.npy")
             self.urls = np.load(f"{self.config.embeddings_path}/docids.npy")
             self.num_clusters = np.ceil(np.sqrt(len(self.embeddings))).astype(int)
+            self.avg_bundle_size = self.config.cluster["avg_bundle_size"]
+            self.urls_per_bundle = self.config.cluster["urls_per_bundle"]
+            self.max_size = self.config.cluster["max_size"]
 
     def _gen_directory_structure(self):
         """
@@ -136,16 +140,23 @@ class Cluter:
                 contents.append(line.split(" | "))
         return contents
 
+    def _get_size(self, contents):
+        """Calculate the size of the contents."""
+        out = zlib.compress(
+            bytes(" ".join([content[2] for content in contents]), "utf-8"), level=9
+        )
+        return len(out)
+
     def _create_bundles(self, contents):
         """Create bundles of URLs based on clustering."""
         self.logger.info("Creating bundles")
         num_bundles = int(
-            np.ceil(
-                float(len(contents)) / float(self.config.cluster["avg_bundle_size"])
-            )
+            np.ceil(float(self._get_size(contents)) / float(self.avg_bundle_size))
         )
         self.logger.info("Num_bundles = %d", num_bundles)
 
+        # Embed contents and perform clustering
+        self.logger.info("Embedding contents")
         embed_contents = [elem[1] for elem in contents]
         data = np.loadtxt(embed_contents, delimiter=",")
         kmeans = faiss.Kmeans(data.shape[1], num_bundles, nredo=3)
@@ -157,6 +168,7 @@ class Cluter:
             centroids = np.zeros((1, data.shape[1]))
             assignments = [[0]]
 
+        # Create a dictionary to hold the assignments
         self.logger.info("Creating assignment dictionary")
         assignment_dict = {}
         for i, cluster_pair in tqdm(
@@ -164,11 +176,49 @@ class Cluter:
         ):
             cluster = cluster_pair[0]
             if cluster not in assignment_dict:
-                assignment_dict[cluster] = [i]
+                assignment_dict[cluster] = [contents[i]]
             else:
-                assignment_dict[cluster].append(i)
+                assignment_dict[cluster].append(contents[i])
 
-        return centroids, assignment_dict
+        # Divide arbitrarily when all documents are the same
+        if len(assignment_dict) == 1 and num_bundles > 1:
+            self.logger.info(
+                "All documents assigned to one cluster, dividing arbitrarily"
+            )
+            for i in tqdm(
+                range(int(np.ceil(len(contents) / float(self.urls_per_bundle)))),
+                desc="Dividing contents arbitrarily",
+            ):
+                centroids[i] = centroids[list(assignment_dict.keys())[0]]
+                upper_bound = min(i + 1) * self.urls_per_bundle, len(contents)
+                assignment_dict[i] = [
+                    contents[j] for j in range(i * self.urls_per_bundle, upper_bound)
+                ]
+                return (centroids, assignment_dict)
+
+        # If documents are not same, proceed with further processing
+        self.logger.info("Documents assigned to multiple clusters, proceeding")
+        init_clusters = list(assignment_dict.keys()).copy()
+        for cluster in tqdm(init_clusters, desc="Processing initial clusters"):
+            if self._get_size(assignment_dict[cluster]) > self.max_size:
+                self.logger.info(
+                    "Cluster %d exceed max size, creating bundles", cluster
+                )
+                (sub_centroids, sub_assignment_dict) = self._create_bundles(
+                    assignment_dict[cluster]
+                )
+                replace_idx = sorted(sub_assignment_dict.keys())[0]
+                centroids[cluster] = sub_centroids[replace_idx]
+                assignment_dict[cluster] = sub_assignment_dict[replace_idx]
+                offset = len(centroids)
+                centroids = np.vstack((centroids, sub_centroids[replace_idx + 1 :]))
+                for sub_cluster in sub_assignment_dict:
+                    if sub_cluster != replace_idx:
+                        assignment_dict[sub_cluster + offset] = sub_assignment_dict[
+                            sub_cluster
+                        ]
+
+        return (centroids, assignment_dict)
 
     def _process_cluster(self, cluster_file, cluster_idx):
         """Process a single cluster file to create bundles and centroids."""
@@ -180,7 +230,32 @@ class Cluter:
 
         centroids, assignment_dict = self._create_bundles(contents)
 
-        self.logger.info(f"Writing to file -- {cluster_file}/{cluster_idx}")
+        self.logger.info("Writing to file -- %s/%s", cluster_file, cluster_idx)
+        if not os.path.exists(f"{self.config.clustering_path}/{cluster_idx}/"):
+            os.makedirs(f"{self.config.clustering_path}/{cluster_idx}/")
+        if not os.path.exists(f"{self.config.clustering_path}/{cluster_idx}/clusters/"):
+            os.makedirs(f"{self.config.clustering_path}/{cluster_idx}/clusters/")
+        np.savetxt(
+            f"{self.config.clustering_path}/{cluster_idx}/centroids.npy",
+            centroids,
+        )
+
+        for bundle in tqdm(assignment_dict, desc="Writing bundles"):
+            with open(
+                f"{self.config.clustering_path}/{cluster_idx}/clusters/bundle_{bundle}.txt",
+                "w",
+                encoding="utf-8",
+            ) as f:
+                self.logger.info("Writing content to bundle %d", bundle)
+                for elem in assignment_dict[bundle]:
+                    if len(elem) == 3:
+                        f.write(f"{elem[0]} | {elem[1]} | {elem[2]}\n")
+                    else:
+                        self.logger.warning(
+                            "Skipping malformed element in bundle %d: %s", bundle, elem
+                        )
+                        self.logger.warning("Element length: %d", len(elem))
+        self.logger.info("Finished writeing bundles for cluster %d", cluster_idx)
 
     def _process_urls(self):
         """Process URLs associated with embeddings."""
@@ -204,4 +279,4 @@ class Cluter:
         self._assign_embeddings()
 
         self.logger.info("Clustering URLs")
-        slef._process_urls()
+        self._process_urls()

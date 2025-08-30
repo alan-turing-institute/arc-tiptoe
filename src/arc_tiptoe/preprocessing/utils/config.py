@@ -69,7 +69,13 @@ class PreProcessConfig:
             "use_gpu": True,
         }
         self.data = {"dataset": None, "data_subset_size": None}
-        self.cluster = {"apply_clustering": None, "clustering_method": None}
+        self.cluster = {
+            "apply_clustering": None,
+            "clustering_method": None,
+            "avg_bundle_size": 4000,
+            "urls_per_bundle": 160,
+            "max_size": 4000,
+        }
         self.dim_red = {
             "apply_dim_red": None,
             "dim_red_before_clustering": None,
@@ -120,7 +126,14 @@ class PreProcessConfig:
             )
             self.data = config.get("data", {"dataset": None, "data_subset_size": None})
             self.cluster = config.get(
-                "cluster", {"apply_clustering": None, "clustering_method": None}
+                "cluster",
+                {
+                    "apply_clustering": None,
+                    "clustering_method": None,
+                    "avg_bundle_size": 4000,
+                    "urls_per_bundle": 160,
+                    "max_size": 4000,
+                },
             )
             self.dim_red = config.get(
                 "dim_red",
