@@ -7,8 +7,6 @@ TODO:
 - Agglomerative Clustering
 """
 
-import logging
-
 import faiss
 import numpy as np
 

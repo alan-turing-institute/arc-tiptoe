@@ -12,8 +12,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-import arc_tiptoe.preprocessing.embedding.tt_datasets as ds
-from arc_tiptoe.preprocessing.embedding.tt_models import load_sentence_transformer
+import arc_tiptoe.preprocessing.embedding.tt_datasets as tt_ds
+import arc_tiptoe.preprocessing.embedding.tt_models as tt_models
 from arc_tiptoe.preprocessing.utils.config import PreProcessConfig
 
 
@@ -47,9 +47,12 @@ class Embedder(ABC):
             self.dataset = None
             if self.config.embed_pars.get("use_gpu", True):
                 self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.model = load_sentence_transformer(
-                self.config.embed_model, device=self.device
-            )
+            self.model = self.load_model(self.config.embed_model, self.device)
+
+    @abstractmethod
+    def load_model(self, model_name: str, device: str):
+        """Load the embedding model specified in the config."""
+        raise NotImplementedError()
 
     def gen_directory_structure(self):
         """
@@ -69,11 +72,11 @@ class Embedder(ABC):
         """Load the dataset. TODO: refactor for additional datasets"""
         if self.config.data["dataset"] == "msmarco":
             if self.config.embed_pars.get("chunk_data", False):
-                self.dataset = ds.load_msmarco_dataset_hf(
+                self.dataset = tt_ds.load_msmarco_dataset_hf(
                     max_docs=self.config.data["data_subset_size"]
                 )
             else:
-                self.dataset = ds.load_msmarco_dataset_ir()
+                self.dataset = tt_ds.load_msmarco_dataset_ir()
             self.logger.info(
                 "MS MARCO dataset loaded with %d documents", len(self.dataset)
             )
@@ -241,3 +244,14 @@ class Embedder(ABC):
         self.logger.info("saving combined embeddings and doc ids")
         np.save(f"{self.config.embed_path}/embeddings.npy", combined_embeddings)
         np.save(f"{self.config.embed_path}/doc_ids.npy", combined_doc_ids)
+
+
+class SentenceTransformerEmbedder(Embedder):
+    """Embedder using SentenceTransformer models."""
+
+    def __init__(self, config):
+        super().__init__(config)
+
+    def load_model(self, model_name: str, device: str):
+        """Load the SentenceTransformer model."""
+        return tt_models.load_sentence_transformer(model_name, device=device)
