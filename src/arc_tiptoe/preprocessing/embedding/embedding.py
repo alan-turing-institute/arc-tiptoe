@@ -98,7 +98,7 @@ class Embedder(ABC):
             self.logger.info("Processing dataset in chunks")
             chunk_path = f"{self.config.embeddings_path}/chunks"
             if not os.path.exists(chunk_path):
-                os.mkdir(chunk_path, exist_ok=True)
+                os.mkdirs(chunk_path, exist_ok=True)
             self._process_in_batches(chunk_path=chunk_path)
             self._combine_chunks(chunk_path=chunk_path)
         else:
