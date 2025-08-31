@@ -103,7 +103,7 @@ class Clusterer(ABC):
         """Assign embeddings to clusters."""
         centroids_path = f"{self.config.clustering_path}/centroids/centroids.npy"
 
-        centroids = np.load(centroids_path, allow_pickle=True)
+        centroids = np.load(centroids_path)
         self.logger.info("Loaded centroids from %s", centroids_path)
         self.logger.info("Centroids shape: %s", centroids.shape)
 
@@ -326,7 +326,7 @@ class KMeansClusterer(Clusterer):
     def _compute_centroids(self):
         """Compute centroids for the embeddings."""
         centroids = cm.kmeans_centroids(self.embeddings, self.num_clusters)
-        np.savetxt(f"{self.config.clustering_path}/centroids/centroids.npy", centroids)
+        np.save(f"{self.config.clustering_path}/centroids/centroids.npy", centroids)
 
     def _embed_contents(self, contents, num_bundles):
         """Embed the contents using FAISS."""
