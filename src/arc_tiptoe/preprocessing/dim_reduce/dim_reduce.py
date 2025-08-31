@@ -74,8 +74,8 @@ class DimReducer(ABC):
 class DimReducePCA(DimReducer):
     """Dimensionality reduction using PCA."""
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, within_pipeline: bool = False):
+        super().__init__(config, within_pipeline)
         self.logger.info("Initialized PCA dimensionality reduction")
         self.pca_components = None
 
