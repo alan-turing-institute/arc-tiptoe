@@ -73,11 +73,11 @@ class Embedder(ABC):
         """Load the dataset. TODO: refactor for additional datasets"""
         if self.config.data["dataset"] == "msmarco":
             if self.config.embed_pars.get("chunk_data", False):
+                self.dataset = tt_ds.load_msmarco_dataset_ir()
+            else:
                 self.dataset = tt_ds.load_msmarco_dataset_hf(
                     max_docs=self.config.data["data_subset_size"]
                 )
-            else:
-                self.dataset = tt_ds.load_msmarco_dataset_ir()
             self.logger.info(
                 "MS MARCO dataset loaded with %d documents", len(self.dataset)
             )
