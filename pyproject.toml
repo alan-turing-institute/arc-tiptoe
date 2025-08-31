@@ -49,6 +49,7 @@ dependencies = [
     "transformers==4.30.0",
     "wget==3.2",
     "tokenizers",
+    "jsonargparse",
 ]
 
 [project.optional-dependencies]
