@@ -38,11 +38,11 @@ class PreprocessingPipeline:
     def run(self):
         """Run full preprocessing pipeline."""
         if self.config.embedding_done:
+            self.logger.info("Skipping embedding step, already done")
+        else:
             self.logger.info("Starting embedding step%s", "==" * 20)
             self.embedder.load_dataset()
             self.config = self.embedder.embed()
-        else:
-            self.logger.info("Skipping embedding step, already done")
 
         if self.config.dim_red["dim_red_before_clustering"]:
             self.logger.info("Running dimensionality reduction before clustering")
