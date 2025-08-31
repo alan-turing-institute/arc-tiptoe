@@ -44,7 +44,7 @@ class Clusterer(ABC):
             self.logger.info("Clustering not yet complete, starting clustering")
             self._gen_directory_structure()
             self.embeddings = np.load(f"{self.config.embeddings_path}/embeddings.npy")
-            self.urls = np.load(f"{self.config.embeddings_path}/docids.npy")
+            self.urls = np.load(f"{self.config.embeddings_path}/doc_ids.npy")
             self.num_clusters = np.ceil(np.sqrt(len(self.embeddings))).astype(int)
             self.avg_bundle_size = self.config.cluster["avg_bundle_size"]
             self.urls_per_bundle = self.config.cluster["urls_per_bundle"]
