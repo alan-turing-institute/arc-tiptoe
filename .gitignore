@@ -3,3 +3,4 @@ data/
 scratch/
 *.log
 azureuser*
+configs/
