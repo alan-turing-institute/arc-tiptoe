@@ -30,12 +30,10 @@ class PreprocessingPipeline:
         self.embedder = embedders.embedders[self.config.embed_lib](
             self.config, within_pipeline=True
         )
-        self.dim_reducer = dim_reducers.dim_reducers[
-            self.config.dim_red["dim_red_method"]
-        ](self.config, within_pipeline=True)
-        self.clusterer = clusterers.clusterers[self.config.cluster_method](
-            self.config, within_pipeline=True
-        )
+
+        # load these when appropriate
+        self.dim_reducer = None
+        self.clusterer = None
 
     def run(self):
         """Run full preprocessing pipeline."""
