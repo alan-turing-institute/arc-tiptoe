@@ -103,7 +103,7 @@ class Clusterer(ABC):
         """Assign embeddings to clusters."""
         centroids_path = f"{self.config.clustering_path}/centroids/centroids.npy"
 
-        centroids = np.load(centroids_path)
+        centroids = np.load(centroids_path, allow_pickle=True)
         self.logger.info("Loaded centroids from %s", centroids_path)
         self.logger.info("Centroids shape: %s", centroids.shape)
 
@@ -295,7 +295,11 @@ class Clusterer(ABC):
             "Clustering method: %s", self.config.cluster["clustering_method"]
         )
         self.logger.info("Number of clusters: %d", self.num_clusters)
-        self._compute_centroids()
+
+        if os.exists(f"{self.config.clustering_path}/centroids/centroids.npy"):
+            self.logger.info("Centroids already computed, skipping computation")
+        else:
+            self._compute_centroids()
 
         self.logger.info("Initalised clustering, starting assignment")
         self._assign_embeddings()
