@@ -24,7 +24,7 @@ Requires-Dist: boto==2.49.0
 Requires-Dist: boto3==1.26.111
 Requires-Dist: clip==0.2.0
 Requires-Dist: datasets==2.13.1
-Requires-Dist: faiss-cpu==1.7.3
+Requires-Dist: faiss-cpu==1.8.0
 Requires-Dist: gensim==4.3.1
 Requires-Dist: matplotlib==3.7.2
 Requires-Dist: nltk==3.8.1
