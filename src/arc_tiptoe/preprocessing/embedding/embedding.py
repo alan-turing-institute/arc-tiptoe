@@ -40,6 +40,8 @@ class Embedder(ABC):
 
         if config.embedding_done:
             self.logger.info("Initial embedding complete")
+            if within_pipeline:
+                self._return_config_in_pipeline()
         else:
             self.gen_directory_structure()
             self.config.embeddings_path = os.path.join(
@@ -49,6 +51,11 @@ class Embedder(ABC):
             if self.config.embed_pars.get("use_gpu", True):
                 self.device = "cuda" if torch.cuda.is_available() else "cpu"
             self.model = self.load_model(self.config.embed_model, self.device)
+
+    def _return_config_in_pipeline(self):
+        if self.within_pipeline:
+            return self.config
+        return self.config.save_config()
 
     @abstractmethod
     def load_model(self, model_name: str, device: str):
