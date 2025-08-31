@@ -78,7 +78,9 @@ class Embedder(ABC):
                 self.dataset = tt_ds.load_msmarco_dataset_hf(
                     max_docs=self.config.data["data_subset_size"]
                 )
-            self.logger.info("MS MARCO dataset loaded")
+            self.logger.info(
+                "MS MARCO dataset loaded with %d documents", self.dataset.docs_count()
+            )
         else:
             error_msg = f"Dataset {self.config.data['dataset']} not implemented"
             raise NotImplementedError(error_msg)
@@ -142,7 +144,7 @@ class Embedder(ABC):
             batch_size,
         )
 
-        total_chunks = (len(self.dataset) + chunk_size - 1) // chunk_size
+        total_chunks = (self.dataset.docs_count() + chunk_size - 1) // chunk_size
         self.logger.info("Total chunks to process: %d", total_chunks)
 
         chunk_num = 0
