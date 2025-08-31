@@ -94,7 +94,7 @@ class Embedder(ABC):
 
         self.logger.info("Starting embedding process")
 
-        if self.config["embed_pars"]["chunk_data"]:
+        if self.config.embed_pars["chunk_data"]:
             self.logger.info("Processing dataset in chunks")
             chunk_path = f"{self.config.embeddings_path}/chunks"
             if not os.path.exists(chunk_path):
