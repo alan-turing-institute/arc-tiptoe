@@ -60,6 +60,7 @@ class PreProcessConfig:
 
     def __init__(self, config_path: str | None):
         self.uuid = None
+        self.embed_lib = None
         self.embed_model = None
         self.embed_pars = {
             "chunk_data": True,
@@ -113,6 +114,7 @@ class PreProcessConfig:
         with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
             self.uuid = config.get("uuid", None)
+            self.embed_lib = config.get("embed_lib", None)
             self.embed_model = config.get("embed_model", None)
             self.embed_pars = config.get(
                 "embed_pars",

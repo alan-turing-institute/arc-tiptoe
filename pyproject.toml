@@ -32,7 +32,7 @@ dependencies = [
     "boto3==1.26.111",
     "clip==0.2.0",
     "datasets==2.13.1",
-    "faiss-cpu==1.8.0",
+    "faiss-cpu",
     "gensim",
     "matplotlib",
     "nltk==3.8.1",
@@ -49,6 +49,8 @@ dependencies = [
     "transformers==4.30.0",
     "wget==3.2",
     "jsonargparse",
+    "ir_datasets",
+    "datasets",
 ]
 
 [project.optional-dependencies]

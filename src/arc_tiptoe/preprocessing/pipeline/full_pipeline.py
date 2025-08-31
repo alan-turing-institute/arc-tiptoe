@@ -27,7 +27,7 @@ class PreprocessingPipeline:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing preprocessing pipeline")
 
-        self.embedder = embedders.embedders[self.config.embed_model](
+        self.embedder = embedders.embedders[self.config.embed_lib](
             self.config, within_pipeline=True
         )
         self.dim_reducer = dim_reducers.dim_reducers[
