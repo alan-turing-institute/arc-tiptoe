@@ -38,6 +38,7 @@ class PreprocessingPipeline:
     def run(self):
         """Run full preprocessing pipeline."""
         self.logger.info("Starting embedding step%s", "==" * 20)
+        self.embedder.load_dataset()
         self.config = self.embedder.embed()
 
         if self.config.dim_red["dim_red_before_clustering"]:
