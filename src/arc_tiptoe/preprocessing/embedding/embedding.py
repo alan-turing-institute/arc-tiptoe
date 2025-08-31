@@ -252,8 +252,8 @@ class Embedder(ABC):
         combined_doc_ids = np.array(all_doc_ids)
 
         self.logger.info("saving combined embeddings and doc ids")
-        np.save(f"{self.config.embed_path}/embeddings.npy", combined_embeddings)
-        np.save(f"{self.config.embed_path}/doc_ids.npy", combined_doc_ids)
+        np.save(f"{self.config.embedding_path}/embeddings.npy", combined_embeddings)
+        np.save(f"{self.config.embedding_path}/doc_ids.npy", combined_doc_ids)
 
 
 class SentenceTransformerEmbedder(Embedder):
