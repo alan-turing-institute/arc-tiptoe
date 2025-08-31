@@ -51,7 +51,7 @@ class DimReducer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def _transform_urls_pca(self):
+    def _transform_urls(self):
         raise NotImplementedError()
 
     @abstractmethod
