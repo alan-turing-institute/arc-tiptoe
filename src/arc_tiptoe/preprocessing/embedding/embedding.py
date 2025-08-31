@@ -89,7 +89,7 @@ class Embedder(ABC):
         """Embed the dataset using the specified embedding model."""
         if self.dataset is None:
             self.logger.error("Dataset not loaded")
-            return
+            return 1
         self.load_dataset()
 
         self.logger.info("Starting embedding process")

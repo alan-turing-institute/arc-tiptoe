@@ -312,7 +312,7 @@ class Clusterer(ABC):
         return 1
 
 
-class KMeansCluster(Clusterer):
+class KMeansClusterer(Clusterer):
     """KMeans clustering class."""
 
     def __init__(self, config: PreProcessConfig):
