@@ -296,7 +296,7 @@ class Clusterer(ABC):
         )
         self.logger.info("Number of clusters: %d", self.num_clusters)
 
-        if os.exists(f"{self.config.clustering_path}/centroids/centroids.npy"):
+        if os.path.isfile(f"{self.config.clustering_path}/centroids/centroids.npy"):
             self.logger.info("Centroids already computed, skipping computation")
         else:
             self._compute_centroids()
