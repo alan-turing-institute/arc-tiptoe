@@ -49,9 +49,9 @@ class PreprocessingPipeline:
             self.logger.info("Skipping clustering step, already done")
             return
 
-        self.clusterer = clusterers.clusterers[self.config.cluster["cluster_method"]](
-            self.config
-        )
+        self.clusterer = clusterers.clusterers[
+            self.config.cluster["clustering_method"]
+        ](self.config)
         self.logger.info("Starting clustering step%s", "==" * 20)
         self.config = self.clusterer.cluster_and_assign()
 
