@@ -204,9 +204,17 @@ class PreProcessConfig:
         config = {
             "uuid": self.uuid,
             "embed_model": self.embed_model,
+            "embed_lib": self.embed_lib,
+            "embed_pars": self.embed_pars,
             "data": self.data,
             "cluster": self.cluster,
             "dim_red": self.dim_red,
+            "embedding_done": self.embedding_done,
+            "clustering_done": self.clustering_done,
+            "dim_red_done": self.dim_red_done,
+            "embeddings_path": self.embeddings_path,
+            "clustering_path": self.clustering_path,
+            "dim_red_path": self.dim_red_path,
         }
         config_path = os.path.join(BASE_DIR, self.uuid, "config.json")
         with open(config_path, "w", encoding="utf-8") as f:
