@@ -189,7 +189,9 @@ class PreProcessConfig:
         """
         os.makedirs(os.path.join(BASE_DIR, self.uuid), exist_ok=True)
 
-        self.embeddings_path = os.path.join(BASE_DIR, self.uuid, "embedding")
+        self.embeddings_path = os.path.join(
+            BASE_DIR, self.uuid, "embedding", "embeddings"
+        )
         os.makedirs(self.embeddings_path, exist_ok=True)
 
         self.clustering_path = os.path.join(BASE_DIR, self.uuid, "clusters")
