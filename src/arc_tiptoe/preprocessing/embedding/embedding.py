@@ -21,8 +21,9 @@ class Embedder(ABC):
     """Base class for all embedding methods. The embeddings are placed in the
     subdirectory 'embeddings' within the embedding directory."""
 
-    def __init__(self, config: PreProcessConfig):
+    def __init__(self, config: PreProcessConfig, within_pipeline: bool = False):
         self.config = config
+        self.within_pipeline = within_pipeline
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -103,6 +104,15 @@ class Embedder(ABC):
         else:
             self.logger.info("Processing entire dataset at once")
             self._embed_entire_dataset()
+
+        self.config.embedding_done = True
+        self.logger.info("Embedding process complete")
+        self.config.save_config()
+
+        if self.within_pipeline:
+            return self.config
+
+        return self.config.save_config()
 
     def _embed_entire_dataset(self):
         """Emnbed the entire dataset"""

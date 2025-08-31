@@ -21,8 +21,9 @@ MULTI_ASSIGN = 2
 class Clusterer(ABC):
     """Clutering class, clusters and assigns."""
 
-    def __init__(self, config: PreProcessConfig):
+    def __init__(self, config: PreProcessConfig, within_pipeline: bool = False):
         self.config = config
+        self.within_pipeline = within_pipeline
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -301,6 +302,14 @@ class Clusterer(ABC):
 
         self.logger.info("Clustering URLs")
         self._process_urls()
+
+        self.config.clustering_done = True
+        self.logger.info("Clustering process complete")
+        self.config.save_config()
+        if self.within_pipeline:
+            return self.config
+
+        return 1
 
 
 class KMeansCluster(Clusterer):

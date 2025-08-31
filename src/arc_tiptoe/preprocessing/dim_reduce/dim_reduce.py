@@ -1,5 +1,10 @@
 """
 Classes for dimensionality reduction methods.
+
+TODO:
+- Update for running dim reduction before clustering
+- Add UMAP method
+- Add t-SNE method
 """
 
 import logging
@@ -15,8 +20,9 @@ import arc_tiptoe.preprocessing.dim_reduce.dim_reduce_methods as drm
 class DimReducer(ABC):
     """Base class for all dimensionality reduction methods."""
 
-    def __init__(self, config):
+    def __init__(self, config, within_pipeline: bool = False):
         self.config = config
+        self.within_pipeline = within_pipeline
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -49,10 +55,20 @@ class DimReducer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def reduce_dimensions(self):
+    def _reduce_dimensions(self):
         """Reduce the dimensions of the embeddings."""
         self.logger.info("transforming embeddings")
         raise NotImplementedError()
+
+    def reduce_dimensions(self):
+        """Public method to reduce dimensions and update config."""
+        self._reduce_dimensions()
+        self.config.dim_red_done = True
+        self.config.save_config()
+        if self.within_pipeline:
+            return self.config
+
+        return 1
 
 
 class DimReducePCA(DimReducer):
@@ -100,7 +116,7 @@ class DimReducePCA(DimReducer):
         else:
             self.logger.info("Output file for url clusters already exists, skipping")
 
-    def reduce_dimensions(self):
+    def _reduce_dimensions(self):
         """Reduce the dimensions of the embeddings using PCA."""
         self.logger.info("Train PCA compenents for dim reduction")
         pca_components_path = f"{self.dim_red_path}/pca_{self.dim_red_dimension}.npy"

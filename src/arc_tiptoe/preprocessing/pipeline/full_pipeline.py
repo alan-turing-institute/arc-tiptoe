@@ -27,29 +27,50 @@ class PreprocessingPipeline:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing preprocessing pipeline")
 
-        self.embedder = embedders.embedders[self.config.embed_model](self.config)
+        self.embedder = embedders.embedders[self.config.embed_model](
+            self.config, within_pipeline=True
+        )
         self.dim_reducer = dim_reducers.dim_reducers[
             self.config.dim_red["dim_red_method"]
-        ](self.config)
-        self.clusterer = clusterers.clusterers[self.config.cluster_method](self.config)
+        ](self.config, within_pipeline=True)
+        self.clusterer = clusterers.clusterers[self.config.cluster_method](
+            self.config, within_pipeline=True
+        )
 
     def run(self):
         """Run full preprocessing pipeline."""
         self.logger.info("Starting embedding step%s", "==" * 20)
-        self.embedder.embed()
+        self.config = self.embedder.embed()
 
         if self.config.dim_red["dim_red_before_clustering"]:
             self.logger.info("Running dimensionality reduction before clustering")
+            self.logger.info("Updating config after embedding step")
+            self.dim_reducer = dim_reducers.dim_reducers[
+                self.config.dim_red["dim_red_method"]
+            ](self.config, within_pipeline=True)
+
             self.logger.info("Starting dimensionality reduction step%s", "==" * 20)
-            self.dim_reducer.reduce_dimensions()
+            self.config = self.dim_reducer.reduce_dimensions()
 
             self.logger.info("Starting clustering step%s", "==" * 20)
+            self.logger.info("Updating config after dim reduction step")
+            self.clusterer = clusterers.clusterers[self.config.cluster_method](
+                self.config
+            )
             self.clusterer.cluster_and_assign()
         else:
             self.logger.info("Running clustering before dimensionality reduction")
+            self.logger.info("Updating config after embedding step")
+            self.clusterer = clusterers.clusterers[self.config.cluster_method](
+                self.config, within_pipeline=True
+            )
             self.logger.info("Starting clustering step%s", "==" * 20)
-            self.clusterer.cluster_and_assign()
+            self.config = self.clusterer.cluster_and_assign()
 
+            self.logger.info("Updating config after clustering step")
+            self.dim_reducer = dim_reducers.dim_reducers[
+                self.config.dim_red["dim_red_method"]
+            ](self.config, within_pipeline=True)
             self.logger.info("Starting dimensionality reduction step%s", "==" * 20)
             self.dim_reducer.reduce_dimensions()
 
