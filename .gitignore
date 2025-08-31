@@ -4,3 +4,10 @@ scratch/
 *.log
 azureuser*
 configs/
+*__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.DS_Store
+.vscode/
