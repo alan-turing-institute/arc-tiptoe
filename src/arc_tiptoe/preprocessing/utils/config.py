@@ -146,6 +146,12 @@ class PreProcessConfig:
                     "dim_red_dimension": None,
                 },
             )
+            self.embedding_done = config.get("embedding_done", False)
+            self.clustering_done = config.get("clustering_done", False)
+            self.dim_red_done = config.get("dim_red_done", False)
+            self.embeddings_path = config.get("embeddings_path", None)
+            self.clustering_path = config.get("clustering_path", None)
+            self.dim_red_path = config.get("dim_red_path", None)
 
         if self.uuid is None:
             self.uuid = self.gen_uuid()
