@@ -78,9 +78,7 @@ class Embedder(ABC):
                 self.dataset = tt_ds.load_msmarco_dataset_hf(
                     max_docs=self.config.data["data_subset_size"]
                 )
-            self.logger.info(
-                "MS MARCO dataset loaded with %d documents", len(self.dataset)
-            )
+            self.logger.info("MS MARCO dataset loaded")
         else:
             error_msg = f"Dataset {self.config.data['dataset']} not implemented"
             raise NotImplementedError(error_msg)
