@@ -178,7 +178,7 @@ class Clusterer(ABC):
             range(int(np.ceil(len(contents) / float(self.urls_per_bundle)))),
             desc="Dividing contents arbitrarily",
         ):
-            centroids[i] = centroids[next(iter(assignment_dict.keys()))]
+            centroids[i] = centroids[list(assignment_dict.keys())[0]]
             upper_bound = min((i + 1) * self.urls_per_bundle, len(contents))
             assignment_dict[i] = [
                 contents[j] for j in range(i * self.urls_per_bundle, upper_bound)
