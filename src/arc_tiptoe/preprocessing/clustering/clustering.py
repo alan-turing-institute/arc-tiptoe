@@ -179,7 +179,7 @@ class Clusterer(ABC):
             desc="Dividing contents arbitrarily",
         ):
             centroids[i] = centroids[next(iter(assignment_dict.keys()))]
-            upper_bound = min(i + 1) * self.urls_per_bundle, len(contents)
+            upper_bound = min((i + 1) * self.urls_per_bundle, len(contents))
             assignment_dict[i] = [
                 contents[j] for j in range(i * self.urls_per_bundle, upper_bound)
             ]
@@ -277,7 +277,7 @@ class Clusterer(ABC):
         for bundle in tqdm(assignment_dict, desc="Writing bundles"):
             self._write_bundle(cluster_idx, bundle, assignment_dict)
 
-        self.logger.info("Finished writeing bundles for cluster %d", cluster_idx)
+        self.logger.info("Finished writing bundles for cluster %d", cluster_idx)
 
     def _process_urls(self):
         """Process URLs associated with embeddings."""
