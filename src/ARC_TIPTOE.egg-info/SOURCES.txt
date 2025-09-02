@@ -6,6 +6,11 @@ src/ARC_TIPTOE.egg-info/SOURCES.txt
 src/ARC_TIPTOE.egg-info/dependency_links.txt
 src/ARC_TIPTOE.egg-info/requires.txt
 src/ARC_TIPTOE.egg-info/top_level.txt
+src/arc_tiptoe.egg-info/PKG-INFO
+src/arc_tiptoe.egg-info/SOURCES.txt
+src/arc_tiptoe.egg-info/dependency_links.txt
+src/arc_tiptoe.egg-info/requires.txt
+src/arc_tiptoe.egg-info/top_level.txt
 src/arc_tiptoe/eval/accuracy/f1.py
 src/arc_tiptoe/eval/accuracy/mrr.py
 src/arc_tiptoe/eval/performance/latency.py

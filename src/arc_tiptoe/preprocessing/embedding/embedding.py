@@ -81,13 +81,14 @@ class Embedder(ABC):
         if self.config.data["dataset"] == "msmarco":
             if self.config.embed_pars.get("chunk_data", False):
                 self.dataset = tt_ds.load_msmarco_dataset_ir()
+                self.logger.info(
+                    "MS MARCO dataset loaded with %d documents",
+                    self.dataset.docs_count(),
+                )
             else:
                 self.dataset = tt_ds.load_msmarco_dataset_hf(
                     max_docs=self.config.data["data_subset_size"]
                 )
-            self.logger.info(
-                "MS MARCO dataset loaded with %d documents", self.dataset.docs_count()
-            )
         else:
             error_msg = f"Dataset {self.config.data['dataset']} not implemented"
             raise NotImplementedError(error_msg)
@@ -157,7 +158,18 @@ class Embedder(ABC):
         chunk_num = 0
         docs_buffer = []
 
-        for doc in tqdm(self.dataset.docs_iter(), desc="Processing documents"):
+        # Use subset of dataset if given
+        if self.config.data["data_subset_size"] is not None:
+            self.logger.info(
+                "Using subset of dataset: %d documents",
+                self.config.data["data_subset_size"],
+            )
+            ds_iter = self.dataset.docs_iter()[: self.config.data["data_subset_size"]]
+        else:
+            self.logger.info("Using full dataset")
+            ds_iter = self.dataset.docs_iter()
+
+        for doc in tqdm(ds_iter, desc="Processing documents"):
             docs_buffer.append(
                 {
                     "doc_id": doc.doc_id,

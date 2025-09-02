@@ -38,7 +38,9 @@ class PreprocessingPipeline:
             self.logger.info("Skipping embedding step, already done")
             return
 
-        self.embedder = embedders.embedders[self.config.embed_lib]
+        self.embedder = embedders.embedders[self.config.embed_lib](
+            self.config, within_pipeline=True
+        )
         self.logger.info("Starting embedding step %s", "==" * 20)
         self.embedder.load_dataset()
         self.config = self.embedder.embed()
@@ -51,19 +53,19 @@ class PreprocessingPipeline:
 
         self.clusterer = clusterers.clusterers[
             self.config.cluster["clustering_method"]
-        ](self.config)
+        ](self.config, within_pipeline=True)
         self.logger.info("Starting clustering step %s", "==" * 20)
         self.config = self.clusterer.cluster_and_assign()
 
     def _dim_reduce(self):
         """Run dimensionality reduction step."""
-        if self.config.dim_red["dim_red_done"]:
+        if self.config.dim_red_done:
             self.logger.info("Skipping dimensionality reduction step, already done")
             return
 
         self.dim_reducer = dim_reducers.dim_reducers[
             self.config.dim_red["dim_red_method"]
-        ](self.config)
+        ](self.config, within_pipeline=True)
         self.logger.info("Starting dimensionality reduction step %s", "==" * 20)
         self.config = self.dim_reducer.reduce_dimensions()
 

@@ -10,6 +10,7 @@ TODO:
 import logging
 import os
 from abc import ABC, abstractmethod
+from glob import glob
 
 import numpy as np
 from tqdm import tqdm
@@ -47,12 +48,22 @@ class DimReducer(ABC):
             self.dim_red_path = self.config.dim_red_path
 
     @abstractmethod
-    def _transform_embeddings(self):
+    def _transform_embedding(self, idx):
+        """Transform a single embedding using the dimensionality reduction method."""
         raise NotImplementedError()
 
-    @abstractmethod
+    def _transform_embeddings(self):
+        """Transform a single embedding"""
+        self.logger.info("Transform embeddings using PCA components")
+        for idx in tqdm(
+            range(self.num_clusters), desc="Transforming embedding clusters"
+        ):
+            self._transform_embedding(idx)
+
     def _transform_urls(self):
-        raise NotImplementedError()
+        """Transform the url bundles"""
+        directories = glob(f"{self.config.clustering_path}/bundles/*")
+        files = []
 
     @abstractmethod
     def _reduce_dimensions(self):
@@ -81,7 +92,7 @@ class DimReducePCA(DimReducer):
 
     def _transform_embedding(self, idx):
         """Transform a single embedding using PCA components."""
-        input_file = f"{self.config.clustering_path}/cluster_{idx}.txt"
+        input_file = f"{self.config.clustering_path}/assignments/cluster_{idx}.txt"
         output_file = (
             f"{self.dim_red_path}/pca_{self.dim_red_dimension}/cluster_{idx}.txt"
         )
@@ -92,29 +103,6 @@ class DimReducePCA(DimReducer):
             self.logger.info("Finished processing cluster %d", idx)
         else:
             self.logger.info("Output file for cluster %d already exists, skipping", idx)
-
-    def _transform_embeddings(self):
-        self.logger.info("Transform embeddings using PCA components")
-        for idx in tqdm(
-            range(self.num_clusters), desc="Transforming embedding clusters"
-        ):
-            self._transform_embedding(idx)
-
-    def _transform_urls(self):
-        self.logger.info("Transform url clusters using PCA components")
-        output_file = (
-            f"{self.dim_red_path}/pca_{self.dim_red_dimension}/"
-            f"pca_{self.dim_red_dimension}/"
-        )
-        if not os.path.exists(output_file):
-            drm.transform_embeddings(
-                self.pca_components,
-                f"{self.config.clustering_path}/url_clusters.txt",
-                output_file,
-                self.logger,
-            )
-        else:
-            self.logger.info("Output file for url clusters already exists, skipping")
 
     def _reduce_dimensions(self):
         """Reduce the dimensions of the embeddings using PCA."""

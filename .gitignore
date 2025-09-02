@@ -11,3 +11,4 @@ configs/
 *.sqlite3
 .DS_Store
 .vscode/
+build/

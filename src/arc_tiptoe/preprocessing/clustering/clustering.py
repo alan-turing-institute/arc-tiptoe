@@ -54,16 +54,14 @@ class Clusterer(ABC):
         """
         Generate the directory structure for the clustering."""
         os.makedirs(
-            os.path.join("data", self.config.uuid, "clustering", "centroids"),
+            os.path.join(self.config.clustering_path, "centroids"),
             exist_ok=True,
         )
         os.makedirs(
-            os.path.join("data", self.config.uuid, "clustering", "assignments"),
+            os.path.join(self.config.clustering_path, "assignments"),
             exist_ok=True,
         )
-        self.config.clustering_path = os.path.join(
-            "data", self.config.uuid, "clustering"
-        )
+        os.makedirs(os.path.join(self.config.clustering_path, "bundles"), exist_ok=True)
 
     @abstractmethod
     def _compute_centroids(self):
@@ -98,6 +96,23 @@ class Clusterer(ABC):
                     f.write(data_str)
             else:
                 self.logger.info("No assignments for cluster %d", i)
+
+    def _check_assignments_done(self):
+        """Check if the assignments have been computed"""
+        cluster_files = [
+            (f"{self.config.clustering_path}/assignments/cluster_{i}.txt")
+            for i in range(self.num_clusters)
+        ]
+        all_done = True
+        for idx, cluster_file in enumerate(cluster_files):
+            if not os.path.isfile(cluster_file):
+                self.logger.info("Cluster file %s not found", cluster_file)
+                all_done = False
+            else:
+                if os.path.getsize(cluster_file) == 0:
+                    self.logger.info("Cluster file %s is empty", cluster_file)
+                    all_done = False
+        return all_done
 
     def _assign_embeddings(self):
         """Assign embeddings to clusters."""
@@ -240,7 +255,8 @@ class Clusterer(ABC):
     def _write_bundle(self, cluster_idx, bundle, assignment_dict):
         """Write a single bundle to file."""
         with open(
-            f"{self.config.clustering_path}/{cluster_idx}/clusters/bundle_{bundle}.txt",
+            f"{self.config.clustering_path}/bundles/"
+            f"{cluster_idx}/clusters/bundle_{bundle}.txt",
             "w",
             encoding="utf-8",
         ) as f:
@@ -265,12 +281,16 @@ class Clusterer(ABC):
         centroids, assignment_dict = self._create_bundles(contents)
 
         self.logger.info("Writing to file -- %s/%s", cluster_file, cluster_idx)
-        if not os.path.exists(f"{self.config.clustering_path}/{cluster_idx}/"):
-            os.makedirs(f"{self.config.clustering_path}/{cluster_idx}/")
-        if not os.path.exists(f"{self.config.clustering_path}/{cluster_idx}/clusters/"):
-            os.makedirs(f"{self.config.clustering_path}/{cluster_idx}/clusters/")
+        if not os.path.exists(f"{self.config.clustering_path}/bundles/{cluster_idx}/"):
+            os.makedirs(f"{self.config.clustering_path}/bundles/{cluster_idx}/")
+        if not os.path.exists(
+            f"{self.config.clustering_path}/bundles/{cluster_idx}/clusters/"
+        ):
+            os.makedirs(
+                f"{self.config.clustering_path}/bundles/{cluster_idx}/clusters/"
+            )
         np.savetxt(
-            f"{self.config.clustering_path}/{cluster_idx}/centroids.npy",
+            f"{self.config.clustering_path}/bundles/{cluster_idx}/centroids.npy",
             centroids,
         )
 
@@ -299,10 +319,14 @@ class Clusterer(ABC):
         if os.path.isfile(f"{self.config.clustering_path}/centroids/centroids.npy"):
             self.logger.info("Centroids already computed, skipping computation")
         else:
+            self.logger.info("Computing centroids")
             self._compute_centroids()
 
-        self.logger.info("Initalised clustering, starting assignment")
-        self._assign_embeddings()
+        if self._check_assignments_done():
+            self.logger.info("Assignments already computed, skipping assignment")
+        else:
+            self.logger.info("Initalised clustering, starting assignment")
+            self._assign_embeddings()
 
         self.logger.info("Clustering URLs")
         self._process_urls()
@@ -319,8 +343,8 @@ class Clusterer(ABC):
 class KMeansClusterer(Clusterer):
     """KMeans clustering class."""
 
-    def __init__(self, config: PreProcessConfig):
-        super().__init__(config)
+    def __init__(self, config: PreProcessConfig, within_pipeline: bool = False):
+        super().__init__(config, within_pipeline)
         self.logger.info("Initialized KMeans clustering")
 
     def _compute_centroids(self):
