@@ -3,6 +3,7 @@ Classes for dimensionality reduction methods.
 
 TODO:
 - Update for running dim reduction before clustering
+- Generalise train method?
 - Add UMAP method
 - Add t-SNE method
 """
@@ -10,12 +11,13 @@ TODO:
 import logging
 import os
 from abc import ABC, abstractmethod
-from glob import glob
 
 import numpy as np
 from tqdm import tqdm
 
 import arc_tiptoe.preprocessing.dim_reduce.dim_reduce_methods as drm
+
+# from glob import glob
 
 
 class DimReducer(ABC):
@@ -60,11 +62,6 @@ class DimReducer(ABC):
         ):
             self._transform_embedding(idx)
 
-    def _transform_urls(self):
-        """Transform the url bundles"""
-        directories = glob(f"{self.config.clustering_path}/bundles/*")
-        files = []
-
     @abstractmethod
     def _reduce_dimensions(self):
         """Reduce the dimensions of the embeddings."""
@@ -89,12 +86,39 @@ class DimReducePCA(DimReducer):
         super().__init__(config, within_pipeline)
         self.logger.info("Initialized PCA dimensionality reduction")
         self.pca_components = None
+        self.pca_components_path = (
+            f"{self.dim_red_path}/"
+            f"{self.config.dim_red['dim_red_method']}_"
+            f"{self.dim_red_dimension}.npy"
+        )
 
-    def _transform_embedding(self, idx):
+    def _train_pca(self):
+        """Train pca and save the componenents path"""
+        drm.train_pca(
+            self.pca_components_path,
+            self.embeddings,
+            self.dim_red_dimension,
+            self.logger,
+        )
+        self.pca_components = np.load(self.pca_components_path)
+
+    def _transform_embeddings(self):
+        """Transform the embeddings pre-clustering"""
+        self.logger.info("Transform embeddings using PCA components")
+        output_file = (
+            f"{self.dim_red_path}/"
+            f"{self.config.dim_red['dim_red_method']}_"
+            f"{self.dim_red_dimension}/embeddings.py"
+        )
+        drm.transform_embeddings(self.pca_components, self.embeddings, output_file)
+
+    def _transform_clustered_embeddings(self, idx):
         """Transform a single embedding using PCA components."""
         input_file = f"{self.config.clustering_path}/assignments/cluster_{idx}.txt"
         output_file = (
-            f"{self.dim_red_path}/pca_{self.dim_red_dimension}/cluster_{idx}.txt"
+            f"{self.dim_red_path}/"
+            f"{self.config.dim_red['dim_red_method']}_"
+            f"{self.dim_red_dimension}/cluster_{idx}.txt"
         )
 
         if not os.path.exists(output_file):
@@ -107,17 +131,9 @@ class DimReducePCA(DimReducer):
     def _reduce_dimensions(self):
         """Reduce the dimensions of the embeddings using PCA."""
         self.logger.info("Train PCA compenents for dim reduction")
-        pca_components_path = f"{self.dim_red_path}/pca_{self.dim_red_dimension}.npy"
-        drm.train_pca(
-            pca_components_path,
-            self.embeddings,
-            self.dim_red_dimension,
-            self.logger,
-        )
-        self.pca_components = np.load(pca_components_path)
 
         # Transform the embeddings using the PCA components
         self._transform_embeddings()
 
-        # Transform the url clusters using the PCA components
-        self._transform_urls()
+        # Transform the embeddings using the PCA components
+        self._transform_embeddings()

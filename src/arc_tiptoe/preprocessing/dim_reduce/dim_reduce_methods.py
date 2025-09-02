@@ -75,7 +75,25 @@ def train_pca(pca_compents_file, train_vecs, new_dim, logger=None):
         logger.info("PCA components saved successfully")
 
 
-def transform_embeddings(pca_components, in_file, out_file, logger=None):
+def transform_embeddings(
+    pca_components: np.ndarray,
+    embeddings: np.ndarray,
+    out_file: str | None = None,
+    logger=None,
+):
+    """Transform embeddings using PCA components"""
+    if logger:
+        logger.info("Transforming embeddings")
+    out_embeddings = run_pca(pca_components, embeddings)
+    if logger:
+        logger.info("Transformed embeddings")
+    if out_file is not None:
+        np.save(out_file, out_embeddings)
+        return 1
+    return out_embeddings
+
+
+def transform_clustered_embeddings(pca_components, in_file, out_file, logger=None):
     """Transform embeddings using PCA components."""
     with open(in_file, encoding="utf-8") as f:
         lines = [line for line in f.readlines() if line.strip()]
