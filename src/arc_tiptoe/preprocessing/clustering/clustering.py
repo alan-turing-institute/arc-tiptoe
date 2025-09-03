@@ -204,9 +204,7 @@ class Clusterer(ABC):
 
     def _dim_red_contents(self, cluster_contents, embed_contents):
         """Dimensionality reduce the contents if needed."""
-        dim_red_embed_contents = self.dim_reducer._transform_embedding(
-            embed_contents, initial_assignment=False
-        )
+        dim_red_embed_contents = self.dim_reducer.transform_embedding(embed_contents)
         return [
             (
                 cluster_contents[i][0],

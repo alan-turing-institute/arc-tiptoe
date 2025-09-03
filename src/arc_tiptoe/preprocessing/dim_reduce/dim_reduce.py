@@ -50,17 +50,14 @@ class DimReducer(ABC):
             self.dim_red_path = self.config.dim_red_path
 
     @abstractmethod
-    def _transform_embedding(self, idx):
+    def _transform_embedding(self):
         """Transform a single embedding using the dimensionality reduction method."""
         raise NotImplementedError()
 
+    @abstractmethod
     def _transform_embeddings(self):
         """Transform a single embedding"""
-        self.logger.info("Transform embeddings using PCA components")
-        for idx in tqdm(
-            range(self.num_clusters), desc="Transforming embedding clusters"
-        ):
-            self._transform_embedding(idx)
+        raise NotImplementedError()
 
     @abstractmethod
     def _reduce_dimensions(self):
@@ -135,5 +132,11 @@ class DimReducePCA(DimReducer):
         # Transform the embeddings using the PCA components
         self._transform_embeddings()
 
-        # Transform the embeddings using the PCA components
-        self._transform_embeddings()
+    def transform_embedding(self, embeddings):
+        """Transform a single embedding using PCA components."""
+        if self.pca_components is None:
+            if os.path.exists(self.pca_components_path):
+                self.pca_components = np.load(self.pca_components_path)
+            else:
+                self._train_pca()
+        return drm.run_pca(self.pca_components, embeddings)
