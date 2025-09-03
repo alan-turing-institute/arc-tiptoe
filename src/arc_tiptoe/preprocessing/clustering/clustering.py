@@ -12,8 +12,9 @@ import numpy as np
 from tqdm import tqdm
 
 import arc_tiptoe.preprocessing.clustering.cluster_methods as cm
+from arc_tiptoe.preprocessing.dim_reduce.dim_reduce import DimReducer
+from arc_tiptoe.preprocessing.dim_reduce.dim_reducers import dim_reducers
 from arc_tiptoe.preprocessing.utils.config import PreProcessConfig
-from arc_tiptoe.preprocessing.utils.dim_reduce.dim_reduce import DimReducer
 
 # How many clusters to assign embeddings to if they're close to multiple centroids
 MULTI_ASSIGN = 2
@@ -65,7 +66,9 @@ class Clusterer(ABC):
                 if dim_reducer is not None:
                     self.dim_reducer = dim_reducer
                 else:
-                    self.dim_reducer = DimReducer(self.config, within_pipeline=True)
+                    self.dim_reducer = dim_reducers[
+                        self.config.dim_red["dim_red_method"]
+                    ](self.config, within_pipeline=False)
 
     def _gen_directory_structure(self):
         """
@@ -81,7 +84,9 @@ class Clusterer(ABC):
         os.makedirs(os.path.join(self.config.clustering_path, "bundles"), exist_ok=True)
 
     @abstractmethod
-    def _compute_centroids(self):
+    def _compute_centroids(
+        self, num_clusters: int | None = None, initial_assignment=False
+    ):
         """Compute the centroids for the embeddings. Rewrite in child class for given
         clustering method."""
         raise NotImplementedError()
@@ -89,7 +94,7 @@ class Clusterer(ABC):
     def _check_centroids_done(self):
         """Check if the centroids have been computed."""
         centroids_path = f"{self.config.clustering_path}/centroids/centroids.npy"
-        return os.path.is_file(centroids_path)
+        return os.path.isfile(centroids_path)
 
     def _assign_embedding(
         self, idx, distances, assignments, percentilers, assignment_dict
@@ -197,6 +202,87 @@ class Clusterer(ABC):
         )
         return len(out)
 
+    def _dim_red_contents(self, cluster_contents, embed_contents):
+        """Dimensionality reduce the contents if needed."""
+        dim_red_embed_contents = self.dim_reducer._transform_embedding(
+            embed_contents, initial_assignment=False
+        )
+        return [
+            (
+                cluster_contents[i][0],
+                ",".join([str(ch) for ch in dim_red_embed_contents[i]]),
+                cluster_contents[i][2],
+            )
+            for i in range(len(cluster_contents))
+        ]
+
+    @abstractmethod
+    def _sub_clustering(self, embedded_cluster_contents, num_bundles):
+        """
+        Sub-cluster the contents of a cluster. Overwrite for given clustering method
+        """
+        raise NotImplementedError()
+
+    def _divide_cluster_arbitrarily(
+        self,
+        cluster_contents,
+        embed_contents,
+        num_bundles,
+        apply_dim_red,
+        dim_red_before,
+    ):
+        """Divide a cluster arbitrarily when all documents are the same."""
+        self.logger.info("All documents assigned to one cluster, dividing arbitrarily")
+        output_list = []
+        for idx in tqdm(range(num_bundles), desc="Dividing arbitrarily"):
+            upper_bound = min((idx + 1) * self.urls_per_bundle, len(cluster_contents))
+            if apply_dim_red and not dim_red_before:
+                output_list.append(
+                    self._dim_red_contents(
+                        cluster_contents[idx * self.urls_per_bundle : upper_bound],
+                        embed_contents[idx * self.urls_per_bundle : upper_bound],
+                    )
+                )
+            else:
+                output_list.append(
+                    cluster_contents[idx * self.urls_per_bundle : upper_bound]
+                )
+        return output_list
+
+    def _divide_cluster_recursively(
+        self, assignments_dict, apply_dim_red, dim_red_before
+    ):
+        """Divide the cluster recursively"""
+        output_list = []
+        init_clusters = list(assignments_dict.keys()).copy()
+        for cluster in init_clusters:
+            if self._get_cluster_size(assignments_dict[cluster]) > self.max_size:
+                sub_output_list = self._cluster_by_url(assignments_dict[cluster])
+                output_list = output_list + sub_output_list
+            else:
+                embed_contents = np.loadtxt(
+                    [elem[1] for elem in assignments_dict[cluster]], delimiter=","
+                )
+                if len(np.shape(embed_contents)) < 2:
+                    if apply_dim_red and not dim_red_before:
+                        self.logger.info("Applying dim reduction after clustering")
+                        output_contents = self._dim_red_contents(
+                            assignments_dict[cluster], embed_contents
+                        )
+                    else:
+                        output_list.append(output_contents)
+                else:
+                    if apply_dim_red and not dim_red_before:
+                        self.logger.info("Applying dim reduction after clustering")
+                        output_list.append(
+                            self._dim_red_contents(
+                                assignments_dict[cluster], embed_contents
+                            )
+                        )
+                    else:
+                        output_list.append(assignments_dict[cluster])
+        return output_list
+
     def _cluster_by_url(self, cluster_contents):
         """Cluster the contents by URL."""
         cluster_size = self._get_cluster_size(cluster_contents)
@@ -206,7 +292,46 @@ class Clusterer(ABC):
         embed_contents = np.loadtxt(
             [elem[1] for elem in cluster_contents], delimiter=","
         )
-        # TODO: PICK BACK UP HERE TOMORROW
+        apply_dim_red = self.config.dim_red["apply_dim_red"]
+        dim_red_before = self.config.dim_red["dim_red_before_clustering"]
+        if len(embed_contents.shape) < 2:
+            if apply_dim_red and not dim_red_before:
+                self.logger.info("Applying dim reduction after clustering")
+                return [self._dim_red_contents(cluster_contents, embed_contents)]
+            return [cluster_contents]
+        if num_bundles == 1:
+            if apply_dim_red and not dim_red_before:
+                self.logger.info("Applying dim reduction after clustering")
+                return [self._dim_red_contents(cluster_contents, embed_contents)]
+            return [cluster_contents]
+
+        if len(embed_contents) > 1 and len(np.shape(embed_contents)) == 2:
+            assignments = self._sub_clustering(embed_contents, num_bundles)
+        else:
+            assignments = [[0]]
+
+        assignments_dict = {}
+        for idx, cluster_pair in enumerate(assignments):
+            cluster = cluster_pair[0]
+            if cluster not in assignments_dict:
+                assignments_dict[cluster] = [cluster_contents[idx]]
+            else:
+                assignments_dict[cluster].append(cluster_contents[idx])
+
+        # divide arbitrarily when all docs the same
+        if len(assignments_dict) == 1 and num_bundles > 1:
+            return self._divide_cluster_arbitrarily(
+                cluster_contents,
+                embed_contents,
+                num_bundles,
+                apply_dim_red,
+                dim_red_before,
+            )
+
+        # recursively compute otherwise
+        return self._divide_cluster_recursively(
+            assignments_dict, apply_dim_red, dim_red_before
+        )
 
     def _singleton_cluster(self, cluster_contents):
         """Handle a cluster that is within size limits by assigning it as is."""
@@ -219,6 +344,113 @@ class Clusterer(ABC):
             centroid = np.mean(embed_contents, axis=0)
         clustered_dict = {0: self._cluster_by_url(cluster_contents)}
         return ([centroid], clustered_dict)
+
+    def _split_cluster(self, cluster_contents):
+        """Split a cluster that is too large into smaller clusters."""
+        num_bundles = int(
+            2
+            * np.ceil(
+                float(
+                    self._get_cluster_size(cluster_contents)
+                    / float(self.avg_bundle_size)
+                )
+            ).astype(int)
+        )
+        self.logger.info("Splitting cluster into %d bundles", num_bundles)
+        embed_contents = np.loadtxt(
+            [elem[1] for elem in cluster_contents], delimiter=","
+        )
+        if len(embed_contents) > 1 and len(np.shape(embed_contents)) == 2:
+            assignments = self._sub_clustering(embed_contents, num_bundles)
+            centroids = self._compute_centroids(num_clusters=num_bundles)
+        else:
+            return []
+
+        assignments_dict = {}
+        membership_dict = {}
+        for idx in range(num_bundles):
+            assignments_dict[idx] = []
+            membership_dict[idx] = set()
+        for idx, cluster_pair in enumerate(assignments):
+            cluster = cluster_pair[0]
+            assignments_dict[cluster].append(cluster_contents[idx])
+            membership_dict[cluster].add(cluster_contents[idx][2])
+
+        num_zeros = 0
+        for i in range(num_bundles):
+            if len(assignments_dict[i]) == 0:
+                num_zeros += 1
+        self.logger.info("Number of empty sub-clusters: %d", num_zeros)
+        if num_zeros == num_bundles - 1 and num_bundles > 0:
+            for idx in range(num_bundles):
+                centroids[i] = centroids[next(iter(assignments_dict.keys()))]
+                upper_bound = min(
+                    (idx + 1) * self.avg_bundle_size, len(cluster_contents)
+                )
+                assignments_dict[idx] = self._cluster_by_url(
+                    [
+                        cluster_contents[j]
+                        for j in range(idx * self.avg_bundle_size, upper_bound)
+                    ]
+                )
+            return centroids, assignments_dict
+
+        # Clear out empty clusters and recompute centroids
+        new_assignments_dict = {}
+        num_zeros = 0
+        for idx in range(len(centroids)):
+            if idx in assignments_dict:
+                new_assignments_dict[idx - num_zeros] = assignments_dict[idx]
+                if len(assignments_dict[idx - num_zeros]) > 0:
+                    centroids[idx - num_zeros] = np.loadtxt(
+                        [elem[1] for elem in assignments_dict[idx]], delimiter=","
+                    )
+                else:
+                    num_zeros += 1
+        centroids = centroids[: len(centroids) - num_zeros]
+        assignments_dict = new_assignments_dict
+
+        init_clusters = list(assignments_dict.keys()).copy()
+        clustered_dict = {}
+        for cluster in init_clusters:
+            if len(assignments_dict[cluster]) > self.max_size:
+                sub_centroids, sub_clustered_dict = self._split_cluster(
+                    assignments_dict[cluster]
+                )
+                offset = len(centroids)
+                centroids[cluster] = sub_centroids[0]
+                clustered_dict[cluster] = sub_clustered_dict[0]
+                if len(sub_centroids) > 1:
+                    centroids = np.row_stack((centroids, sub_centroids[1:]))
+                for sub_cluster in sub_clustered_dict:
+                    if sub_cluster != 0:
+                        clustered_dict[sub_cluster + offset - 1] = sub_clustered_dict[
+                            sub_cluster
+                        ]
+            else:
+                clustered_dict[cluster] = self._cluster_by_url(
+                    assignments_dict[cluster]
+                )
+
+        return centroids, clustered_dict
+
+    def _pack_url_bundles(self, bundles):
+        """Pack url bundles into a single string."""
+        packed_bundles = []
+        bundles.sort(key=lambda x: self._get_cluster_size(x), reverse=True)
+        for new_bundles in bundles:
+            placed = False
+            for idx, packed_bundle in enumerate(packed_bundles):
+                if (
+                    not placed
+                    and self._get_cluster_size(packed_bundle + new_bundles)
+                    < self.urls_per_bundle
+                ):
+                    packed_bundles[idx] = packed_bundle + new_bundles
+                    placed = True
+            if not placed:
+                packed_bundles.append(new_bundles)
+        return packed_bundles
 
     def _process_cluster(self, cluster, idx):
         """Process a single clusters"""
@@ -238,6 +470,26 @@ class Clusterer(ABC):
             self.logger.info("Cluster within size limits, assigning as is")
             centroids, clustered_dict = self._singleton_cluster(cluster_contents)
 
+        # Write clusters
+        self.logger.info("Writing processed cluster")
+        if not os.path.exists(f"{self.config.clustering_path}/clusters/{idx}"):
+            os.makedirs(f"{self.config.clustering_path}/clusters/{idx}")
+
+        total_elems = 0
+        for idx, cluster in tqdm(enumerate(clustered_dict), desc="Writing clusters"):
+            file_name = (
+                f"{self.config.clustering_path}/clusters/{idx}/cluster_{idx}.txt"
+            )
+            with open(file_name, "w", encoding="utf-8") as f:
+                packed_url_bundles = self._pack_url_bundles(clustered_dict[cluster])
+                for j, bundle in enumerate(packed_url_bundles):
+                    for elem in bundle:
+                        if len(elem) == 3:
+                            f.write(f"{elem[0]} | {elem[1]} | {elem[2]}")
+                            total_elems += 1
+                    f.write("-------------------------\n")
+        return total_elems, centroids
+
     def _process_clusters(self):
         """Process all clusters to assign overlaps and break up big clusters."""
         cluster_files = [
@@ -249,10 +501,44 @@ class Clusterer(ABC):
         if not os.path.exists(f"{self.config.clustering_path}/clusters"):
             os.makedirs(f"{self.config.clustering_path}/clusters")
 
-        new_centroids = []
-
+        centroids = []
+        total = 0
         for idx, cluster in tqdm(enumerate(cluster_files), desc="Processing Clusters"):
-            self._process_cluster(cluster, idx)
+            return_val = self._process_cluster(cluster, idx)
+            if return_val is None:
+                continue
+
+            total_elems, cluster_centroids = return_val
+            total += total_elems
+            self.logger.info("Total elements in processed cluster: %d", total_elems)
+            if len(centroids) > 0:
+                centroids = np.row_stack((centroids, cluster_centroids))
+            else:
+                centroids = cluster_centroids
+        np.savetxt(
+            f"{self.config.clustering_path}/centroids/final_centroids.txt", centroids
+        )
+        with open(
+            f"{self.config.clustering_path}/cluster_count.txt", "w", encoding="utf-8"
+        ) as f:
+            f.write(f"Total clusters: {total}")
+
+    def _cluster_and_assign(self):
+        """Sub method"""
+        if self._check_centroids_done():
+            self.logger.info("Centroids already computed, skipping computation")
+        else:
+            self.logger.info("Computing centroids")
+            self._compute_centroids(initial_assignment=True)
+
+        self.logger.info("Initalised clustering, starting initial assignment")
+        if self._check_assignments_done():
+            self.logger.info("Assignments already computed, skipping assignment")
+        else:
+            self._assign_embeddings()
+
+        self.logger.info("Processing clusters")
+        self._process_clusters()
 
     def clusters_and_assign(self):
         """
@@ -281,47 +567,29 @@ class Clusterer(ABC):
                     f"embeddings.npy"
                 )
 
-                if self._check_centroids_done():
-                    self.logger.info("Centroids already computed, skipping computation")
-                else:
-                    self.logger.info("Computing centroids")
-                    self._compute_centroids(initial_assignment=True)
+                self._cluster_and_assign()
+                self.config.dim_red_done = True
+                self.config.clustering_done = True
+                self.config.save_config()
+                if self.within_pipeline:
+                    return self.config
+                return 1
 
-                self.logger.info("Initalised clustering, starting initial assignment")
-                if self._check_assignments_done():
-                    self.logger.info(
-                        "Assignments already computed, skipping assignment"
-                    )
-                else:
-                    self._assign_embeddings()
+            self.logger.info("Applying dimensionality reduction after clustering")
+            self._cluster_and_assign()
+            self.config.dim_red_done = True
+            self.config.clustering_done = True
+            self.config.save_config()
+            if self.within_pipeline:
+                return self.config
+            return 1
 
-                self.logger.info("Processing clusters")
-                self._process_clusters()
-
-            else:
-                self.logger.info("Applying dimensionality reduction after clustering")
-
-        if os.path.isfile(f"{self.config.clustering_path}/centroids/centroids.npy"):
-            self.logger.info("Centroids already computed, skipping computation")
-        else:
-            self.logger.info("Computing centroids")
-            self._compute_centroids()
-
-        # if self._check_assignments_done():
-        #     self.logger.info("Assignments already computed, skipping assignment")
-        # else:
-        #     self.logger.info("Initalised clustering, starting assignment")
-        #     self._assign_embeddings()
-
-        # self.logger.info("Clustering URLs")
-        # self._process_urls()
-
-        # self.config.clustering_done = True
-        # self.logger.info("Clustering process complete")
-        # self.config.save_config()
-        # if self.within_pipeline:
-        #     return self.config
-
+        self.logger.info("No application of dimensionality reduction")
+        self._cluster_and_assign()
+        self.config.clustering_done = True
+        self.config.save_config()
+        if self.within_pipeline:
+            return self.config
         return 1
 
 
@@ -332,165 +600,22 @@ class KMeansClusterer(Clusterer):
         super().__init__(config, within_pipeline)
         self.logger.info("Initialized KMeans clustering")
 
-    def _compute_centroids(self, intial_assignment: bool = False):
+    def _compute_centroids(
+        self, num_clusters: int | None = None, initial_assignment: bool = False
+    ):
         """
         Compute centroids for the embeddings.
 
         If used for initial assignment this will save the centroids, returning otherwise
         """
+        num_clusters = num_clusters if num_clusters is not None else self.num_clusters
+        self.logger.info("Computing %d centroids", num_clusters)
         centroids = cm.kmeans_centroids(self.embeddings, self.num_clusters)
         if initial_assignment:
             np.save(f"{self.config.clustering_path}/centroids/centroids.npy", centroids)
             return 1
         return centroids
 
-    # def _embed_contents(self, contents, num_bundles):
-    #     """Embed the contents using FAISS."""
-    #     return cm.kmeans_embed_contents(contents, num_bundles, self.logger)
-
-
-### WIP
-# def _get_size(self, contents):
-#     """Calculate the size of the contents."""
-#     out = zlib.compress(
-#         bytes(" ".join([content[2] for content in contents]), "utf-8"), level=9
-#     )
-#     return len(out)
-
-# @abstractmethod
-# def _embed_contents(self, contents, num_bundles):
-#     """Embed the contents using FAISS. Rewrite in child class for given clustering
-#     method."""
-#     raise NotImplementedError()
-
-# def _create_assignment_dict(self, cluster_pair, contents, assignment_dict, idx):
-#     """Create an assignment dictionary for a given cluster pair."""
-#     cluster = cluster_pair[0]
-#     if cluster not in assignment_dict:
-#         assignment_dict[cluster] = [contents[idx]]
-#     else:
-#         assignment_dict[cluster].append(contents[idx])
-#     return assignment_dict
-
-# def _divide_contents_arbitrarily(self, contents, centroids, assignment_dict):
-#     """Divide contents arbitrarily when all documents are the same."""
-#     self.logger.info("All documents assigned to one cluster, dividing arbitrarily")
-#     for i in tqdm(
-#         range(int(np.ceil(len(contents) / float(self.urls_per_bundle)))),
-#         desc="Dividing contents arbitrarily",
-#     ):
-#         centroids[i] = centroids[list(assignment_dict.keys())[0]]
-#         upper_bound = min((i + 1) * self.urls_per_bundle, len(contents))
-#         assignment_dict[i] = [
-#             contents[j] for j in range(i * self.urls_per_bundle, upper_bound)
-#         ]
-#     return (centroids, assignment_dict)
-
-# def _process_large_url_clusters(self, cluster, assignment_dict, centroids):
-#     """Process large URL clusters by creating sub-bundles."""
-#     self.logger.info("Cluster %d exceed max size, creating bundles", cluster)
-#     (sub_centroids, sub_assignment_dict) = self._create_bundles(
-#         assignment_dict[cluster]
-#     )
-#     replace_idx = sorted(sub_assignment_dict.keys())[0]
-#     centroids[cluster] = sub_centroids[replace_idx]
-#     assignment_dict[cluster] = sub_assignment_dict[replace_idx]
-#     offset = len(centroids)
-#     centroids = np.vstack((centroids, sub_centroids[replace_idx + 1 :]))
-#     for sub_cluster in sub_assignment_dict:
-#         if sub_cluster != replace_idx:
-#             assignment_dict[sub_cluster + offset] = sub_assignment_dict[sub_cluster]
-
-# def _create_bundles(self, contents):
-#     """Create bundles of URLs based on clustering."""
-#     self.logger.info("Creating bundles")
-#     num_bundles = int(
-#         np.ceil(float(self._get_size(contents)) / float(self.avg_bundle_size))
-#     )
-#     self.logger.info("Num_bundles = %d", num_bundles)
-
-#     # Embed contents and perform clustering
-#     centroids, assignments = self._embed_contents(contents, num_bundles)
-
-#     # Create a dictionary to hold the assignments
-#     self.logger.info("Creating assignment dictionary")
-#     assignment_dict = {}
-#     for idx, cluster_pair in tqdm(
-#         enumerate(assignments), desc="Creating assignment dictionary"
-#     ):
-#         assignment_dict = self._create_assignment_dict(
-#             cluster_pair, contents, assignment_dict, idx
-#         )
-
-#     # Divide arbitrarily when all documents are the same
-#     if len(assignment_dict) == 1 and num_bundles > 1:
-#         centroids, assignments = self._divide_contents_arbitrarily(
-#             contents, centroids, assignment_dict
-#         )
-#         return (centroids, assignments)
-
-#     # If documents are not same, proceed with further processing
-#     self.logger.info("Documents assigned to multiple clusters, proceeding")
-#     init_clusters = list(assignment_dict.keys()).copy()
-#     for cluster in tqdm(init_clusters, desc="Processing initial clusters"):
-#         if self._get_size(assignment_dict[cluster]) > self.max_size:
-#             self._process_large_url_clusters(cluster, assignment_dict, centroids)
-
-#     return (centroids, assignment_dict)
-
-# def _write_bundle(self, cluster_idx, bundle, assignment_dict):
-#     """Write a single bundle to file."""
-#     with open(
-#         f"{self.config.clustering_path}/bundles/"
-#         f"{cluster_idx}/clusters/bundle_{bundle}.txt",
-#         "w",
-#         encoding="utf-8",
-#     ) as f:
-#         self.logger.info("Writing content to bundle %d", bundle)
-#         for elem in assignment_dict[bundle]:
-#             if len(elem) == 3:
-#                 f.write(f"{elem[0]} | {elem[1]} | {elem[2]}\n")
-#             else:
-#                 self.logger.warning(
-#                     "Skipping malformed element in bundle %d: %s", bundle, elem
-#                 )
-#                 self.logger.warning("Element length: %d", len(elem))
-
-# def _process_cluster(self, cluster_file, cluster_idx):
-#     """Process a single cluster file to create bundles and centroids."""
-#     self.logger.info("**** PROCESS CLUSTER *****")
-#     contents = self._parse_file(cluster_file)
-#     self.logger.info("LEN = %d", len(contents))
-#     if len(contents) == 0:
-#         return
-
-#     centroids, assignment_dict = self._create_bundles(contents)
-
-#     self.logger.info("Writing to file -- %s/%s", cluster_file, cluster_idx)
-#     if not os.path.exists(f"{self.config.clustering_path}/bundles/{cluster_idx}/"):
-#         os.makedirs(f"{self.config.clustering_path}/bundles/{cluster_idx}/")
-#     if not os.path.exists(
-#         f"{self.config.clustering_path}/bundles/{cluster_idx}/clusters/"
-#     ):
-#         os.makedirs(
-#             f"{self.config.clustering_path}/bundles/{cluster_idx}/clusters/"
-#         )
-#     np.savetxt(
-#         f"{self.config.clustering_path}/bundles/{cluster_idx}/centroids.npy",
-#         centroids,
-#     )
-
-#     for bundle in tqdm(assignment_dict, desc="Writing bundles"):
-#         self._write_bundle(cluster_idx, bundle, assignment_dict)
-
-#     self.logger.info("Finished writing bundles for cluster %d", cluster_idx)
-
-# def _process_urls(self):
-#     """Process URLs associated with embeddings."""
-#     cluster_files = [
-#         (f"{self.config.clustering_path}/assignments/cluster_{i}.txt")
-#         for i in range(self.num_clusters)
-#     ]
-
-#     for idx, cluster in enumerate(cluster_files):
-#         self._process_cluster(cluster, idx)
+    def _sub_clustering(self, embedded_cluster_contents, num_bundles):
+        """Sub-cluster the contents of a cluster using kmeas."""
+        return cm.kmeans_sub_cluster(embedded_cluster_contents, num_bundles)

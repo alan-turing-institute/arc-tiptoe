@@ -20,18 +20,10 @@ def kmeans_centroids(embeddings: np.ndarray, num_clusters: int) -> np.ndarray:
     return kmeans.centroids
 
 
-def kmeans_embed_contents(contents: list[str], num_bundles: int, logger=None):
-    """Embed the contents using FAISS."""
-    if logger:
-        logger.info("Embedding contents")
-    embed_contents = [elem[1] for elem in contents]
-    data = np.loadtxt(embed_contents, delimiter=",")
-    kmeans = faiss.Kmeans(data.shape[1], num_bundles, nredo=3)
-    if len(data) >= 1 and len(np.shape(data)) == 2:
-        kmeans.train(data.astype(np.float32))
-        centroids = kmeans.centroids
-        _, assignments = kmeans.index.search(data.astype(np.float32), 1)
-    else:
-        centroids = np.zeros((1, data.shape[1]))
-        assignments = [[0]]
-    return centroids, assignments
+def kmeans_sub_cluster(embed_contents: np.ndarray, num_bundles: int, n_redo=1):
+    """Sub-clustering the embedded contents using kmeans"""
+    dim = embed_contents.shape[1]
+    kmeans = faiss.Kmeans(dim, num_bundles, verbose=True, nredo=n_redo)
+    kmeans.train(embed_contents.astype(np.float32))
+    _, assignments = kmeans.index.search(embed_contents.astype(np.float32), 1)
+    return assignments
