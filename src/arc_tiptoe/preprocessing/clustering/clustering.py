@@ -538,7 +538,7 @@ class Clusterer(ABC):
         self.logger.info("Processing clusters")
         self._process_clusters()
 
-    def clusters_and_assign(self):
+    def cluster_and_assign(self):
         """
         Cluster and assign embeddings and urls.
 
@@ -594,8 +594,13 @@ class Clusterer(ABC):
 class KMeansClusterer(Clusterer):
     """KMeans clustering class."""
 
-    def __init__(self, config: PreProcessConfig, within_pipeline: bool = False):
-        super().__init__(config, within_pipeline)
+    def __init__(
+        self,
+        config: PreProcessConfig,
+        within_pipeline: bool = False,
+        dim_reducer: DimReducer = None,
+    ):
+        super().__init__(config, within_pipeline, dim_reducer)
         self.logger.info("Initialized KMeans clustering")
 
     def _compute_centroids(

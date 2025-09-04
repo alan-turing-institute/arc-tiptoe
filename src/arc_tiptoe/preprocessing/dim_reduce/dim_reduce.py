@@ -50,7 +50,7 @@ class DimReducer(ABC):
             self.dim_red_path = self.config.dim_red_path
 
     @abstractmethod
-    def _transform_embedding(self):
+    def transform_embedding(self):
         """Transform a single embedding using the dimensionality reduction method."""
         raise NotImplementedError()
 
