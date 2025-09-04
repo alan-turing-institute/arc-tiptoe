@@ -2,7 +2,6 @@
 Classes for dimensionality reduction methods.
 
 TODO:
-- Update for running dim reduction before clustering
 - Generalise train method?
 - Add UMAP method
 - Add t-SNE method
@@ -13,9 +12,11 @@ import os
 from abc import ABC, abstractmethod
 
 import numpy as np
-from tqdm import tqdm
 
 import arc_tiptoe.preprocessing.dim_reduce.dim_reduce_methods as drm
+
+# from tqdm import tqdm
+
 
 # from glob import glob
 
@@ -50,7 +51,7 @@ class DimReducer(ABC):
             self.dim_red_path = self.config.dim_red_path
 
     @abstractmethod
-    def transform_embedding(self):
+    def transform_embedding(self, embeddings):
         """Transform a single embedding using the dimensionality reduction method."""
         raise NotImplementedError()
 

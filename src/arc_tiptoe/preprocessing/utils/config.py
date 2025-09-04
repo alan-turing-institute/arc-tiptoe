@@ -68,6 +68,7 @@ class PreProcessConfig:
             "batch_size": 256,
             "sequence_length": 512,
             "use_gpu": True,
+            "preprocessing_required": False,
         }
         self.data = {"dataset": None, "data_subset_size": None}
         self.cluster = {
@@ -124,6 +125,7 @@ class PreProcessConfig:
                     "batch_size": None,
                     "use_gpu": None,
                     "sequence_length": None,
+                    "preprocessing_required": False,
                 },
             )
             self.data = config.get("data", {"dataset": None, "data_subset_size": None})

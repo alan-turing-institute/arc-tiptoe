@@ -124,9 +124,12 @@ class Embedder(ABC):
 
     def _embed_entire_dataset(self):
         """Emnbed the entire dataset"""
-        hf_dataset = self.dataset.map(
-            lambda x: {"body": self._chunk_text(x["body"])}, batch_size=32
-        )
+        hf_dataset = self.dataset
+        if self.config.embed_pars["preprocessing_required"]:
+            hf_dataset = self.dataset.map(
+                lambda x: {"body": self._preprocess_data(x["body"])}, batch_size=32
+            )
+
         embeddings = np.array(
             self.model.encode(
                 hf_dataset["body"],
@@ -173,7 +176,11 @@ class Embedder(ABC):
             docs_buffer.append(
                 {
                     "doc_id": doc.doc_id,
-                    "body": self._chunk_text(doc.body),
+                    "body": (
+                        self._preprocess_data(doc.body)
+                        if self.config.embed_pars["preprocessing_required"]
+                        else doc.body
+                    ),
                     "title": doc.title,
                     "url": doc.url,
                 }
@@ -200,11 +207,9 @@ class Embedder(ABC):
 
         self.logger.info("Completed processing %d chunks of documents.", chunk_num + 1)
 
-    def _chunk_text(self, text: str, max_length: int = 512) -> list[str]:
-        """chunk the text into smaller segments of a specified maximum length"""
-        if not text:
-            return ""
-        return " ".join(text.split()[:max_length])
+    def _preprocess_data(self, text, **kwargs):
+        """Preprocess the data as required for models"""
+        return tt_models.PREPROCESSING_METHODS[self.config.embed_model](text, **kwargs)
 
     def _process_chunk(
         self, docs_buffer: list[dict], chunk_num: int, batch_size: int, chunk_path: str
