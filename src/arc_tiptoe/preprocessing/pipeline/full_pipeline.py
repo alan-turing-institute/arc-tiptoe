@@ -25,7 +25,9 @@ class PreprocessingPipeline:
             format="%(asctime)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.StreamHandler(),
-                logging.FileHandler(f"{self.config.uuid}_preprocessing.log"),
+                logging.FileHandler(
+                    f"data/{self.config.uuid}/{self.config.uuid}_preprocessing.log"
+                ),
             ],
         )
         self.logger = logging.getLogger(__name__)

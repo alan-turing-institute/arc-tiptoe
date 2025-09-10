@@ -30,6 +30,7 @@ class Embedder(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
+                    f"data/{self.config.uuid}"
                     f"{self.config.data['dataset']}_"
                     f"{self.config.data['data_subset_size']}.log"
                 ),
@@ -48,8 +49,12 @@ class Embedder(ABC):
                 "data", self.config.uuid, "embedding", "embeddings"
             )
             self.dataset = None
+            self.device = "cpu"
             if self.config.embed_pars.get("use_gpu", True):
-                self.device = "cuda" if torch.cuda.is_available() else "cpu"
+                if torch.cuda.is_available():
+                    self.device = "cuda"
+                if torch.backends.mps.is_available():
+                    self.device = "mps"
             self.model = self.load_model(self.config.embed_model, self.device)
 
     def _return_config_in_pipeline(self):

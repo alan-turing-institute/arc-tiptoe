@@ -43,6 +43,7 @@ class Clusterer(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
+                    f"data/{self.config.uuid}"
                     f"{self.config.data['dataset']}_"
                     f"{self.config.cluster['clustering_method']}.log"
                 ),
@@ -435,7 +436,7 @@ class Clusterer(ABC):
     def _pack_url_bundles(self, bundles):
         """Pack url bundles into a single string."""
         packed_bundles = []
-        bundles.sort(key=lambda x: self._get_cluster_size(x), reverse=True)
+        bundles.sort(key=self._get_cluster_size, reverse=True)
         for new_bundles in bundles:
             placed = False
             for idx, packed_bundle in enumerate(packed_bundles):

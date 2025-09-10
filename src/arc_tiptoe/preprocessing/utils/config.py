@@ -4,6 +4,7 @@ Configuration utilities for the preprocessing pipeline.
 
 import hashlib
 import json
+import logging
 import os
 import uuid
 
@@ -59,6 +60,7 @@ class PreProcessConfig:
     """
 
     def __init__(self, config_path: str | None):
+        self.orig_config_path = config_path
         self.uuid = None
         self.embed_lib = None
         self.embed_model = None
@@ -103,6 +105,16 @@ class PreProcessConfig:
 
         # create directory structure
         self.gen_directory_structure()
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            handlers=[
+                logging.StreamHandler(),
+                logging.FileHandler(f"data/{self.uuid}/{self.uuid}_preprocessing.log"),
+            ],
+        )
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Config setup done")
 
         # save updated config
         self.save_config()
@@ -227,5 +239,10 @@ class PreProcessConfig:
             "dim_red_path": self.dim_red_path,
         }
         config_path = os.path.join(BASE_DIR, self.uuid, "config.json")
+        self.logger.info("Saving config in data files")
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4)
+        if self.orig_config_path is not None:
+            self.logger.info("Saving config to original path")
+            with open(self.orig_config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4)

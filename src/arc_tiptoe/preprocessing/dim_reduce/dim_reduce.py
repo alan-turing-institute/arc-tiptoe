@@ -33,6 +33,7 @@ class DimReducer(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
+                    f"data/{self.config.uuid}"
                     f"{self.config.data['dataset']}_"
                     f"{self.config.dim_red['dim_red_method']}.log"
                 ),

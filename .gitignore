@@ -12,3 +12,4 @@ configs/
 .DS_Store
 .vscode/
 build/
+msmarco_data/
