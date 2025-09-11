@@ -7,12 +7,14 @@ import (
 type Config struct {
   preamble    string
   imageSearch bool
+  numClusters int // if > 0, override hardcoded number of clusters
 }
 
 func MakeConfig(preambleStr string, images bool) *Config {
   c := Config{
 	preamble: preambleStr,
 	imageSearch: images,
+  numClusters: -1, // default to -1, meaning use hardcoded values
   }
   return &c
 }
@@ -50,12 +52,28 @@ func SLOT_BITS() uint64 {
   return 5
 }
 
+
+// Deprecated as hard coded
+// func (c *Config) TOTAL_NUM_CLUSTERS() int {
+//   if !c.imageSearch {
+//     return 1280  // Change from 25196 to 1280
+//   } else {
+//     return 42528
+//   }
+// }
+
 func (c *Config) TOTAL_NUM_CLUSTERS() int {
+  if c.numClusters > 0 {
+    return c.numClusters
+  }
+
+  // Otherwise use original hardcoded number for MSMARCO
   if !c.imageSearch {
     return 1280  // Change from 25196 to 1280
   } else {
     return 42528
   }
+
 }
 
 // Round up (# clusters / # embedding servers)
@@ -65,10 +83,20 @@ func (c *Config) EMBEDDINGS_CLUSTERS_PER_SERVER() int {
 }
 
 func (c *Config) MAX_EMBEDDINGS_SERVERS() int {
+  totalClusters := c.TOTAL_NUM_CLUSTERS()
+
   if !c.imageSearch {
-    return 80
+    // for text: use 1 server per 16 clusters, up to 80 servers
+    servers := (totalClusters + 15) / 16
+    if servers < 1 {
+      servers=1
+    }
+    if servers > 80 {
+      servers=80
+    }
+    return servers
   } else {
-    return 160
+    return 80 // keep images the same for now
   }
 }
 
@@ -79,10 +107,20 @@ func (c *Config) URL_CLUSTERS_PER_SERVER() int {
 }
 
 func (c *Config) MAX_URL_SERVERS() int {
+  totalClusters := c.TOTAL_NUM_CLUSTERS()
   if !c.imageSearch {
-    return 8
+    // For text: use 1 server per 160 clusters, but cap at 8 like original design
+    servers := (totalClusters + 159) / 160
+    if servers < 1 {
+      servers=1
+    }
+    if servers > 8 {
+      servers=8
+    }
+    return servers
   } else {
-    return 16
+    // For images: use 1 server per 528 clusters, but cap at 8 like original design
+    return 16 // keep images the same for now
   }
 }
 

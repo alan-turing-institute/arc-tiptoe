@@ -308,6 +308,18 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Using UUID-based data directory: %s\n", conf.PREAMBLE())
+
+		// Log the dynamic configuration
+		fmt.Printf("Dynamic configuration:\n")
+		fmt.Printf("Using UUID-based data directory: %s\n", conf.PREAMBLE())
+		fmt.Printf("Total clusters: %d\n", conf.TOTAL_NUM_CLUSTERS())
+		fmt.Printf("Embedding servers: %d\n", conf.MAX_EMBEDDINGS_SERVERS())
+		fmt.Printf("Clusters per embedding server: %d\n", conf.EMBEDDINGS_CLUSTERS_PER_SERVER())
+		fmt.Printf("URL servers: %d\n", conf.MAX_URL_SERVERS())
+		fmt.Printf("Clusters per URL server: %d\n", conf.URL_CLUSTERS_PER_SERVER())
+		fmt.Printf("Default embedding hint size: %d\n", conf.DEFAULT_EMBEDDINGS_HINT_SZ())
+		fmt.Printf("Default URL hint size: %d\n", config.DEFAULT_URL_HINT_SZ())
+		fmt.Printf("Image search mode: %v\n", *image_search)
 	} else {
 		// Legacy approach - direct preamble
 		conf = config.MakeConfig(*preamble+"data", *image_search)
