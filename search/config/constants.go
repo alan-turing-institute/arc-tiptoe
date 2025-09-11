@@ -2,7 +2,6 @@ package config
 
 import (
 	"math"
-	"path/filepath"
 )
 
 type Config struct {
@@ -16,19 +15,6 @@ func MakeConfig(preambleStr string, images bool) *Config {
 	imageSearch: images,
   }
   return &c
-}
-
-func (c *Config) MakeConfigFromPreprocessConfig(preambleStr string, preprocessConfigPath string, images bool) error {
-  preprocessConfig, err := LoadPreprocessConfig(preprocessConfigPath)
-  if err != nil {
-    return err
-  }
-
-  // Update the preamble to point to the UUID-specific directory
-  c.preamble = filepath.Join(preambleStr, "data", preprocessConfig.UUID)
-  c.imageSearch = images
-
-  return nil
 }
 
 func (c *Config) PREAMBLE() string {

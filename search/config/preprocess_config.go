@@ -31,14 +31,22 @@ func LoadPreprocessConfig(configPath string) (*PreprocessConfig, error) {
 	return &config, nil
 }
 
-func (c *Config) MakeConfigFromPreprocessConfig(preambleStr str, preprocessConfigPath string) error {
+func (c *Config) MakeConfigFromPreprocessConfig(preambleStr string, preprocessConfigPath string, images bool) error {
 	preprocessConfig, err := LoadPreprocessConfig(preprocessConfigPath)
 	if err != nil {
 		return err
 	}
 
 	// Update preamble to point to UUID-specific directory
-	c.preamble = filepath.Join(preambleStr, preprocessConfig.UUID)
+	c.preamble = filepath.Join(preambleStr, "data", preprocessConfig.UUID)
+	c.imageSearch = images
+
+	// Log the paths from the preprocessing config
+	fmt.Printf("Using embedding model: %s\n", preprocessConfig.EmbedModel)
+	fmt.Printf("Using embedding library: %s\n", preprocessConfig.EmbedLib)
+	fmt.Printf("Using embeddings path: %s\n", preprocessConfig.EmbeddingsPath)
+	fmt.Printf("Using clustering path: %s\n", preprocessConfig.ClusteringPath)
+	fmt.Printf("Using dimensionality reduction path: %s\n", preprocessConfig.DimRedPath)
 
 	return nil
 }
