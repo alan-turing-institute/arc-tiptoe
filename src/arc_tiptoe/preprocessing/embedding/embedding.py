@@ -30,9 +30,9 @@ class Embedder(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
-                    f"data/{self.config.uuid}"
+                    f"data/{self.config.uuid}/"
                     f"{self.config.data['dataset']}_"
-                    f"{self.config.data['data_subset_size']}.log"
+                    f"{self.config.data['data_subset_size']}_embedding.log"
                 ),
             ],
         )

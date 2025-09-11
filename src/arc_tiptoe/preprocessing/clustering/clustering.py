@@ -43,9 +43,9 @@ class Clusterer(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
-                    f"data/{self.config.uuid}"
+                    f"data/{self.config.uuid}/"
                     f"{self.config.data['dataset']}_"
-                    f"{self.config.cluster['clustering_method']}.log"
+                    f"{self.config.cluster['clustering_method']}_clustering.log"
                 ),
             ],
         )

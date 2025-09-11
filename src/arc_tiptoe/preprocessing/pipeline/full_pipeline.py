@@ -2,7 +2,9 @@
 Class for the full preprocessing pipeline.
 """
 
+import glob
 import logging
+from pathlib import Path
 
 from arc_tiptoe.preprocessing.clustering import clusterers
 from arc_tiptoe.preprocessing.dim_reduce import dim_reducers
@@ -75,6 +77,19 @@ class PreprocessingPipeline:
         self.logger.info("Starting dimensionality reduction step %s", "==" * 20)
         self.config = self.dim_reducer.reduce_dimensions()
 
+    def _organise_data(self):
+        """
+        Organise the preprocessed data into a standard structure required for search.
+        """
+        self.logger.info("Organising preprocessed data %s", "==" * 20)
+        # Copy assigned clusters to clustering directory
+        if self.config.cluster["apply_clustering"]:
+            src_path = Path(f"{self.config.clustering_path}").joinpath("assignments")
+
+            for each_file in src_path.glob("*.*"):
+                trg_path = src_path.parent
+                each_file.rename(trg_path.joinpath(each_file.name))
+
     def run(self):
         """
         Run full preprocessing pipeline.
@@ -119,6 +134,8 @@ class PreprocessingPipeline:
                 "Neither clustering nor dimensionality reduction"
                 "are enabled in config, nothing to do"
             )
+
+        self._organise_data()
 
         self.logger.info("%s", "==" * 20)
         self.logger.info("Preprocessing pipeline complete")
