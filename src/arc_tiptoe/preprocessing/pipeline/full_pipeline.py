@@ -2,7 +2,6 @@
 Class for the full preprocessing pipeline.
 """
 
-import glob
 import logging
 from pathlib import Path
 

@@ -60,6 +60,7 @@ class Clusterer(ABC):
             self.embeddings = np.load(f"{self.config.embeddings_path}/embeddings.npy")
             self.urls = np.load(f"{self.config.embeddings_path}/doc_ids.npy")
             self.num_clusters = np.ceil(np.sqrt(len(self.embeddings))).astype(int)
+            self.config.cluster["num_clusters"] = self.num_clusters
             self.avg_bundle_size = self.config.cluster["avg_bundle_size"]
             self.urls_per_bundle = self.config.cluster["urls_per_bundle"]
             self.max_size = self.config.cluster["max_size"]
@@ -70,6 +71,8 @@ class Clusterer(ABC):
                     self.dim_reducer = dim_reducers[
                         self.config.dim_red["dim_red_method"]
                     ](self.config, within_pipeline=False)
+
+        self.config.save_config()
 
     def _gen_directory_structure(self):
         """
