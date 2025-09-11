@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
+	"path/filepath"
 
 	"github.com/ahenzinger/tiptoe/search/config"
 	"github.com/ahenzinger/tiptoe/search/protocol"
@@ -14,6 +15,9 @@ import (
 
 // Where the corpus is stored
 var preamble = flag.String("preamble", "/home/azureuser", "Preamble")
+
+// Path to preprocessing config JSON
+var preprocessConfig = flag.String("preprocess_config", "", "Path to preprocessing config JSON file")
 
 // Whether or not running image search
 var image_search = flag.Bool("image_search", false, "Image search")
@@ -253,7 +257,21 @@ func url_server(coordinatorIP string, conf *config.Config) {
 func main() {
 	coordinatorIP := "127.0.0.1"
 	if len(os.Args) < 2 {
+		printUsage()
 		return
+	}
+
+	var conf *config.Config
+	var err error
+
+	// Check if preprocessing config is provided
+	if *preprocessConfig != {
+		// UUID-based approach
+		conf &=config.Config{}
+		err = conf.MakeConfigFromPreprocessConfig(*preamble, *preprocessConfig, *image_search)
+		if err!= nil {
+			fmt.
+		}
 	}
 
 	conf := config.MakeConfig(*preamble+"/data", *image_search)
