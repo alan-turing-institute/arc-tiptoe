@@ -13,3 +13,5 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 )
+
+replace github.com/henrycg/simplepir => github.com/eddableheath/simplepir v0.0.0-20250721103436-f07ae3483bea

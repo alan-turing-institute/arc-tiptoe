@@ -136,7 +136,7 @@ class Embedder(ABC):
             )
 
         embeddings = np.array(
-            self.model.encode(
+            self.model.encode_document(
                 hf_dataset["body"],
                 batch_size=self.config.embed_pars.get("batch_size", 256),
                 convert_to_numpy=True,
@@ -228,7 +228,7 @@ class Embedder(ABC):
         doc_ids = [doc["doc_id"] for doc in docs_buffer]
 
         embeddings = np.array(
-            self.model.encode(
+            self.model.encode_document(
                 texts,
                 batch_size=batch_size,
                 convert_to_numpy=True,

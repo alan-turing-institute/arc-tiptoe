@@ -2,6 +2,8 @@
 Load the models for embedding.
 """
 
+import os
+
 from sentence_transformers import SentenceTransformer
 from torch import device as torch_device
 
@@ -10,6 +12,8 @@ def load_sentence_transformer(
     model_name: str, device: torch_device
 ) -> SentenceTransformer:
     """Load a SentenceTransformer model."""
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["OMP_NUM_THREADS"] = "1"
     return SentenceTransformer(model_name, device=device)
 
 

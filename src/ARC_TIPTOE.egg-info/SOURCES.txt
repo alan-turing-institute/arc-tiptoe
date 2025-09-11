@@ -28,3 +28,4 @@ src/arc_tiptoe/preprocessing/embedding/tt_models.py
 src/arc_tiptoe/preprocessing/pipeline/full_pipeline.py
 src/arc_tiptoe/preprocessing/utils/config.py
 src/arc_tiptoe/preprocessing/utils/known_methods.py
+src/arc_tiptoe/search/run_search.py
