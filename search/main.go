@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
-	"path/filepath"
 
 	"github.com/ahenzinger/tiptoe/search/config"
 	"github.com/ahenzinger/tiptoe/search/protocol"
@@ -14,7 +13,7 @@ import (
 )
 
 // Where the corpus is stored
-var preamble = flag.String("preamble", "/home/azureuser", "Preamble")
+var preamble = flag.String("preamble", "../", "Preamble")
 
 // Path to preprocessing config JSON
 var preprocessConfig = flag.String("preprocess_config", "", "Path to preprocessing config JSON file")
@@ -265,16 +264,21 @@ func main() {
 	var err error
 
 	// Check if preprocessing config is provided
-	if *preprocessConfig != {
+	if *preprocessConfig != "" {
 		// UUID-based approach
-		conf &=config.Config{}
+		conf = &config.Config{}
 		err = conf.MakeConfigFromPreprocessConfig(*preamble, *preprocessConfig, *image_search)
 		if err!= nil {
-			fmt.
+			fmt.Printf("Error loading preprocessing config: %v\n", err)
+			fmt.Printf("Make sure the config file exists and contains a valid UUID\n")
+			os.Exit(1)
 		}
+		fmt.Printf("Using UUID-based data directory: %s\n", conf.PREAMBLE())
+	} else {
+		// Legacy approach - direct preamble
+		conf := config.MakeConfig(*preamble+"/data", *image_search)
+		fmt.Printf("Using legacy data directory: %s\n", conf.PREAMBLE())
 	}
-
-	conf := config.MakeConfig(*preamble+"/data", *image_search)
 
 	if os.Args[1] == "client" {
 		client(coordinatorIP, conf)
