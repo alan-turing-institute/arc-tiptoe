@@ -23,9 +23,19 @@ def _train_pca(train_vecs, new_dim):
 
 
 def run_pca(pca_components, vecs):
-    """Run PCA on the provided vectors using the given components."""
-    print(f"check not zero here {np.sum(pca_components)}, {np.sum(vecs)}")
-    return np.matmul(vecs, pca_components)
+    """Run PCA on the provided vectors using the given components. Quantize values."""
+    # Apply PCA
+    transformed = np.matmul(vecs, pca_components)
+
+    # Adaptive scaling to fit within int8 range
+    data_min = np.min(transformed)
+    data_max = np.max(transformed)
+    data_range = max(abs(data_min), abs(data_max))
+
+    scale_factor = 127.0 / data_range
+    quantized = np.clip(np.round(transformed * scale_factor), -127, 127)
+
+    return quantized.astype(np.int8)
 
 
 def adjust_precision(vec):

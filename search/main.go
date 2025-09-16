@@ -15,6 +15,9 @@ import (
 // Where the corpus is stored
 var preamble = flag.String("preamble", "../", "Preamble")
 
+// Path to search config
+var searchConfig = flag.String("search_config", "", "Path to search config JSON file")
+
 // Path to preprocessing config JSON
 var preprocessConfig = flag.String("preprocess_config", "", "Path to preprocessing config JSON file")
 
@@ -22,15 +25,15 @@ var preprocessConfig = flag.String("preprocess_config", "", "Path to preprocessi
 var image_search = flag.Bool("image_search", false, "Image search")
 
 func printUsage() {
-    fmt.Println("Usage:")
-    fmt.Println("\"go run . --preprocess_config path/to/config.json all-servers\" or")
-    fmt.Println("\"go run . --preprocess_config path/to/config.json client coordinator-ip\" or")
-    fmt.Println("\"go run . --preprocess_config path/to/config.json coordinator numEmbServers numUrlServers ip1 ip2 ...\" or")
-    fmt.Println("\"go run . --preprocess_config path/to/config.json emb-server index\" or")
-    fmt.Println("\"go run . --preprocess_config path/to/config.json url-server index\"")
-    fmt.Println("")
-    fmt.Println("Alternative legacy usage:")
-    fmt.Println("\"go run . --preamble /path/to/data all-servers\" (uses old directory structure)")
+	fmt.Println("Usage:")
+	fmt.Println("\"go run . --preprocess_config path/to/config.json all-servers\" or")
+	fmt.Println("\"go run . --preprocess_config path/to/config.json client coordinator-ip\" or")
+	fmt.Println("\"go run . --preprocess_config path/to/config.json coordinator numEmbServers numUrlServers ip1 ip2 ...\" or")
+	fmt.Println("\"go run . --preprocess_config path/to/config.json emb-server index\" or")
+	fmt.Println("\"go run . --preprocess_config path/to/config.json url-server index\"")
+	fmt.Println("")
+	fmt.Println("Alternative legacy usage:")
+	fmt.Println("\"go run . --preamble /path/to/data all-servers\" (uses old directory structure)")
 }
 
 func client(coordinatorIP string, conf *config.Config) {
@@ -297,12 +300,19 @@ func main() {
 	var conf *config.Config
 	var err error
 
-	// Check if preprocessing config is provided
-	if *preprocessConfig != "" {
+	// Check if search or preprocessing config is provided
+	if *searchConfig != "" {
+		conf = &config.Config{}
+		err = conf.LoadFromSearchConfig(*preamble, *searchConfig)
+		if err != nil {
+			fmt.Printf("Error loading search config: %v\n", err)
+			os.Exit(1)
+		}
+	} else if *preprocessConfig != "" {
 		// UUID-based approach
 		conf = &config.Config{}
 		err = conf.MakeConfigFromPreprocessConfig(*preamble, *preprocessConfig, *image_search)
-		if err!= nil {
+		if err != nil {
 			fmt.Printf("Error loading preprocessing config: %v\n", err)
 			fmt.Printf("Make sure the config file exists and contains a valid UUID\n")
 			os.Exit(1)

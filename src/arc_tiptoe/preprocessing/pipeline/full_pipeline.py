@@ -2,6 +2,7 @@
 Class for the full preprocessing pipeline.
 """
 
+import json
 import logging
 from pathlib import Path
 
@@ -143,6 +144,75 @@ class PreprocessingPipeline:
             # TODO: implement for dim red without clustering
             pass
 
+    def _generate_search_config(self):
+        """Generate a config file for use in search."""
+        self.logger.info("Generating search config file")
+        search_config = {
+            "uuid": self.config.uuid,
+            "data_path": f"data/{self.config.uuid}",
+            "embedding": {
+                "model_name": self.config.embed_model,
+                "embedding_dim": self.config.embed_pars.get("embedding_dimension", 768),
+                "reduced_dimension": self.config.dim_red.get("dim_red_dimension", 192),
+            },
+            "clustering": {
+                "total_clusters": self.config.cluster.get("num_clusters"),
+                "search_top_k": 1,  # 1 by default
+                "centroids_files": f"data/{self.config.uuid}/clusters/centroids.txt",
+                "cluster_dir": f"data/{self.config.uuid}/clusters",
+            },
+            "dim_reduction": {
+                "applied": self.config.dim_red.get("apply_dim_red"),
+                "method": self.config.dim_red.get("dim_red_method"),
+                "pca_components_file": (
+                    f"{self.config.dim_red_path}/"
+                    f"{self.config.dim_red.get('dim_red_method')}_"
+                    f"{self.config.dim_red.get('dim_red_dimension')}.npy"
+                ),
+            },
+            "server_config": self._calculate_server_config(),
+            "artifacts": {
+                "faiss_index": (
+                    f"data/{self.config.uuid}/artifacts/"
+                    f"dim{self.config.dim_red.get('dim_red_dimension')}/"
+                    f"index.faiss"
+                ),
+                "artifact_directory": (
+                    f"data/{self.config.uuid}/artifacts/"
+                    f"dim{self.config.dim_red.get('dim_red_dimension')}"
+                ),
+            },
+        }
+
+        # save search config
+        search_config_path = Path(self.config.orig_config_path).with_suffix("")
+        search_config_path = f"{search_config_path}_search_config.json"
+        with open(search_config_path, "w") as f:
+            json.dump(search_config, f, indent=4)
+
+    def _calculate_server_config(self):
+        """Calculate optimal server configuration based on cluster count"""
+        total_clusters = self.config.cluster.get("num_clusters", 1280)
+
+        # Calculate embedding servers (1 per 16 clusters, max 80)
+        embedding_servers = min(max(1, (total_clusters + 15) // 16), 80)
+        clusters_per_embedding_server = (
+            total_clusters + embedding_servers - 1
+        ) // embedding_servers
+
+        # Calculate URL servers (1 per 160 clusters, max 8)
+        url_servers = min(max(1, (total_clusters + 159) // 160), 8)
+        clusters_per_url_server = (total_clusters + url_servers - 1) // url_servers
+
+        return {
+            "embedding_servers": embedding_servers,
+            "url_servers": url_servers,
+            "clusters_per_embedding_server": clusters_per_embedding_server,
+            "clusters_per_url_server": clusters_per_url_server,
+            "embedding_hint_size": 500,
+            "url_hint_size": 100,
+        }
+
     def run(self):
         """
         Run full preprocessing pipeline.
@@ -191,6 +261,7 @@ class PreprocessingPipeline:
         else:
             self.logger.info("No clustering or dimensionality reduction to apply")
 
+        self._generate_search_config()
         self._organise_data()
 
         self.logger.info("%s", "==" * 20)

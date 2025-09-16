@@ -8,28 +8,28 @@ import (
 )
 
 type ClusterConfig struct {
-	ApplyClustering 	bool `json:"apply_clustering"`
-	NumClusters     	int  `json:"num_clusters"`
-	ClusteringMethod 	string `json:"clustering_method"`
-	AvgBundleSize   	int  `json:"avg_bundle_size"`
-	UrlsPerBundle   	int  `json:"urls_per_bundle"`
-	MaxSize 	 		int  `json:"max_size"`
+	ApplyClustering  bool   `json:"apply_clustering"`
+	NumClusters      int    `json:"num_clusters"`
+	ClusteringMethod string `json:"clustering_method"`
+	AvgBundleSize    int    `json:"avg_bundle_size"`
+	UrlsPerBundle    int    `json:"urls_per_bundle"`
+	MaxSize          int    `json:"max_size"`
 }
 
 type DimRedConfig struct {
-	ApplyDimRed		bool 	`json:"apply_dim_red"`
-	DimRedDimension int 	`json:"dim_red_dimension"`
+	ApplyDimRed     bool `json:"apply_dim_red"`
+	DimRedDimension int  `json:"dim_red_dimension"`
 }
 
 type PreprocessConfig struct {
-    UUID          	string 			`json:"uuid"`
-    EmbedModel    	string 			`json:"embed_model"`
-    EmbedLib      	string 			`json:"embed_lib"`
-    EmbeddingsPath 	string 			`json:"embeddings_path"`
-    ClusteringPath 	string 			`json:"clustering_path"`
-    DimRedPath     	string 			`json:"dim_red_path"`
-	Cluster	   		ClusterConfig 	`json:"cluster"`
-	DimRed			DimRedConfig 	`json:"dim_red"`
+	UUID           string        `json:"uuid"`
+	EmbedModel     string        `json:"embed_model"`
+	EmbedLib       string        `json:"embed_lib"`
+	EmbeddingsPath string        `json:"embeddings_path"`
+	ClusteringPath string        `json:"clustering_path"`
+	DimRedPath     string        `json:"dim_red_path"`
+	Cluster        ClusterConfig `json:"cluster"`
+	DimRed         DimRedConfig  `json:"dim_red"`
 }
 
 func LoadPreprocessConfig(configPath string) (*PreprocessConfig, error) {
@@ -52,6 +52,9 @@ func (c *Config) SetNumClusters(numClusters int) {
 }
 
 func (c *Config) MakeConfigFromPreprocessConfig(preambleStr string, preprocessConfigPath string, images bool) error {
+	// Store the config path
+	c.preprocessConfigPath = preprocessConfigPath
+
 	preprocessConfig, err := LoadPreprocessConfig(preprocessConfigPath)
 	if err != nil {
 		return err

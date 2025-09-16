@@ -141,6 +141,7 @@ class PreProcessConfig:
                     "use_gpu": None,
                     "sequence_length": None,
                     "preprocessing_required": False,
+                    "embedding_dimension": 768,
                 },
             )
             self.data = config.get("data", {"dataset": None, "data_subset_size": None})
@@ -220,6 +221,9 @@ class PreProcessConfig:
 
         os.makedirs(os.path.join(BASE_DIR, self.uuid, "logs"), exist_ok=True)
         os.makedirs(os.path.join(BASE_DIR, self.uuid, "artifact"), exist_ok=True)
+        artifact_dim = f"dim{self.dim_red['dim_red_dimension']}"
+        artifacts_path = os.path.join(BASE_DIR, self.uuid, "artifact", artifact_dim)
+        os.makedirs(artifacts_path, exist_ok=True)
 
     def check_for_previous_compute(self):
         """Check for previously computed objects, copy/reference if done"""
