@@ -16,14 +16,20 @@ type ClusterConfig struct {
 	MaxSize 	 		int  `json:"max_size"`
 }
 
+type DimRedConfig struct {
+	ApplyDimRed		bool 	`json:"apply_dim_red"`
+	DimRedDimension int 	`json:"dim_red_dimension"`
+}
+
 type PreprocessConfig struct {
-    UUID          	string `json:"uuid"`
-    EmbedModel    	string `json:"embed_model"`
-    EmbedLib      	string `json:"embed_lib"`
-    EmbeddingsPath 	string `json:"embeddings_path"`
-    ClusteringPath 	string `json:"clustering_path"`
-    DimRedPath     	string `json:"dim_red_path"`
-	Cluster	   		ClusterConfig `json:"cluster"`
+    UUID          	string 			`json:"uuid"`
+    EmbedModel    	string 			`json:"embed_model"`
+    EmbedLib      	string 			`json:"embed_lib"`
+    EmbeddingsPath 	string 			`json:"embeddings_path"`
+    ClusteringPath 	string 			`json:"clustering_path"`
+    DimRedPath     	string 			`json:"dim_red_path"`
+	Cluster	   		ClusterConfig 	`json:"cluster"`
+	DimRed			DimRedConfig 	`json:"dim_red"`
 }
 
 func LoadPreprocessConfig(configPath string) (*PreprocessConfig, error) {
@@ -58,6 +64,10 @@ func (c *Config) MakeConfigFromPreprocessConfig(preambleStr string, preprocessCo
 	// Extract the number of clusters from the preprocessing config
 	if preprocessConfig.Cluster.NumClusters > 0 {
 		c.numClusters = preprocessConfig.Cluster.NumClusters
+	}
+
+	if preprocessConfig.DimRed.DimRedDimension > 0 {
+		c.embeddingDim = preprocessConfig.DimRed.DimRedDimension
 	}
 
 	// Log the paths from the preprocessing config

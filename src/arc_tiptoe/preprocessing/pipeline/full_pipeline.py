@@ -60,7 +60,7 @@ class PreprocessingPipeline:
 
         self.clusterer = clusterers.clusterers[
             self.config.cluster["clustering_method"]
-        ](self.config, within_pipeline=True, dim_reducer=self.dim_reducer)
+        ](self.config, within_pipeline=True)
         self.logger.info("Starting clustering step %s", "==" * 20)
         self.config = self.clusterer.cluster_and_assign()
 
@@ -69,7 +69,6 @@ class PreprocessingPipeline:
         if self.config.dim_red_done:
             self.logger.info("Skipping dimensionality reduction step, already done")
             return
-
         self.dim_reducer = dim_reducers.dim_reducers[
             self.config.dim_red["dim_red_method"]
         ](self.config, within_pipeline=True)
@@ -82,12 +81,67 @@ class PreprocessingPipeline:
         """
         self.logger.info("Organising preprocessed data %s", "==" * 20)
         # Copy assigned clusters to clustering directory
-        if self.config.cluster["apply_clustering"]:
-            src_path = Path(f"{self.config.clustering_path}").joinpath("assignments")
-
+        if (
+            self.config.cluster["apply_clustering"]
+            and self.config.dim_red["apply_dim_red"]
+        ):
+            # Move the reduced clustered assignments and centroids to the
+            # clustering dire"ctory
+            src_path = Path(
+                f"{self.config.dim_red_path}/"
+                f"{self.config.dim_red['dim_red_method']}_"
+                f"{self.config.dim_red['dim_red_dimension']}/clusters"
+            )
             for each_file in src_path.glob("*.*"):
-                trg_path = src_path.parent
+                trg_path = Path(f"{self.config.clustering_path}")
                 each_file.rename(trg_path.joinpath(each_file.name))
+
+            src_path = Path(
+                f"{self.config.dim_red_path}/"
+                f"{self.config.dim_red['dim_red_method']}_"
+                f"{self.config.dim_red['dim_red_dimension']}/centroids.txt"
+            )
+            trg_path = Path(f"{self.config.clustering_path}/centroids.txt")
+            src_path.rename(trg_path)
+
+            # Move the embeddings, first renaming original embeddings
+            # to avoid overwriting
+            trg_path = Path(f"{self.config.embeddings_path}/embeddings.npy")
+            trg_path.rename(
+                Path(f"{self.config.embeddings_path}/embeddings_original.npy")
+            )
+
+            src_path = Path(
+                f"{self.config.dim_red_path}/"
+                f"{self.config.dim_red['dim_red_method']}_"
+                f"{self.config.dim_red['dim_red_dimension']}/embeddings.npy"
+            )
+            trg_path = Path(f"{self.config.embeddings_path}/embeddings.npy")
+            src_path.rename(trg_path)
+        elif (
+            self.config.cluster["apply_clustering"]
+            and not self.config.dim_red["apply_dim_red"]
+        ):
+            # Move the original clustered assignments and centroids to the
+            # clustering dire"ctory
+            src_path = Path(
+                f"{self.config.cluster_path}/clusters/processing/processed_clusters"
+            )
+            for each_file in src_path.glob("*.*"):
+                trg_path = Path(f"{self.config.clustering_path}/clusters")
+                each_file.rename(trg_path.joinpath(each_file.name))
+
+            src_path = Path(
+                f"{self.config.cluster_path}/processing/centroids/final_centroids.txt"
+            )
+            trg_path = Path(f"{self.config.clustering_path}/centroids.txt")
+            src_path.rename(trg_path)
+        elif (
+            self.config.dim_red["apply_dim_red"]
+            and not self.config.cluster["apply_clustering"]
+        ):
+            # TODO: implement for dim red without clustering
+            pass
 
     def run(self):
         """
@@ -95,44 +149,47 @@ class PreprocessingPipeline:
 
         The pipeline will always extract the embeddings first, and has the following
         logic for the other steps:
-            - If clustering is enabled in the config:
-                - If dimensionality reduction is also enabled, it will be applied
-                within clustering, with the option of dim reduction before or after
-                clustering taken into account here.
-                - If dimensionality reduction is not enabled, only clustering will be
-                run.
-            - If clustering is not enabled in the config, but dimensionality reduction
-            is enabled, only dimensionality reduction will be run.
-            - If neither clustering nor dimensionality reduction are enabled, the
-            pipeline will log that there is nothing to do and exit.
+
+            - If dimensionality reduction and clustering are both enabled, and
+            dimensionality reduction is set to be applied before clustering, then
+            the embeddings will be reduced before clustering.
+            - Otherwise the clustering will be applied first, and if dimensionality
+            reduction is enabled it will be applied after clustering.
+                - This is done by letting the clustering write to file first and then
+                this is picked up by the dimensionality reduction step.
+            - If only clustering is enabled, then only clustering will be applied.
+            - If only dimensionality reduction is enabled, then only dimensionality
+            reduction will be applied.
+            - If neither is enabled, then nothing further will be done.
+
+        Finally the data will be organised into a standard structure.
         """
         self._embed()
 
-        if self.config.cluster["apply_clustering"]:
-            self.logger.info("Clustering is enabled in config")
-            if self.config.dim_red["apply_dim_red"]:
+        if (
+            self.config.cluster["apply_clustering"]
+            and self.config.dim_red["apply_dim_red"]
+        ):
+            if self.config.dim_red["dim_red_before_clustering"]:
                 self.logger.info(
-                    "Dimensionality reduction is enabled in config,"
-                    "applying within clustering"
+                    "Dimensionality reduction set to be applied before clustering"
                 )
-                self.dim_reducer = dim_reducers.dim_reducers[
-                    self.config.dim_red["dim_red_method"]
-                ](self.config)
+                self._dim_reduce()
                 self._cluster()
             else:
-                self.logger.info("Dimensionality reduction is not enabled in config")
+                self.logger.info(
+                    "Clustering set to be applied before dimensionality reduction"
+                )
                 self._cluster()
+                self._dim_reduce()
+        elif self.config.cluster["apply_clustering"]:
+            self.logger.info("Only clustering to be applied")
+            self._cluster()
         elif self.config.dim_red["apply_dim_red"]:
-            self.logger.info(
-                "Clustering is not enabled in config, but"
-                "dimensionality reduction is enabled"
-            )
+            self.logger.info("Only dimensionality reduction to be applied")
             self._dim_reduce()
         else:
-            self.logger.info(
-                "Neither clustering nor dimensionality reduction"
-                "are enabled in config, nothing to do"
-            )
+            self.logger.info("No clustering or dimensionality reduction to apply")
 
         self._organise_data()
 

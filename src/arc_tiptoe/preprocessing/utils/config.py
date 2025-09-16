@@ -6,7 +6,9 @@ import hashlib
 import json
 import logging
 import os
+import time
 import uuid
+from pathlib import Path
 
 # from known_methods import (
 #     CLUSTERING_METHODS,
@@ -79,6 +81,7 @@ class PreProcessConfig:
             "avg_bundle_size": 4000,
             "urls_per_bundle": 160,
             "max_size": 4000,
+            "MULTI_ASSIGN": 1,
         }
         self.dim_red = {
             "apply_dim_red": None,
@@ -149,6 +152,7 @@ class PreProcessConfig:
                     "avg_bundle_size": 4000,
                     "urls_per_bundle": 160,
                     "max_size": 4000,
+                    "MULTI_ASSIGN": 2,
                 },
             )
             self.dim_red = config.get(
@@ -244,7 +248,12 @@ class PreProcessConfig:
             json.dump(config, f, indent=4)
         if self.orig_config_path is not None:
             self.logger.info("Saving config to original path")
-            with open(self.orig_config_path, "w", encoding="utf-8") as f:
+            new_save_config_path = Path(self.orig_config_path).with_suffix("")
+            new_save_config_path = (
+                f"{new_save_config_path}_checkpoint_"
+                f"{time.strftime('%Y%m%d-%H%M%S')}.json"
+            )
+            with open(new_save_config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4)
 
     def _check_for_config(self, config_path):

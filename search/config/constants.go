@@ -5,9 +5,10 @@ import (
 )
 
 type Config struct {
-  preamble    string
-  imageSearch bool
-  numClusters int // if > 0, override hardcoded number of clusters
+  preamble      string
+  imageSearch   bool
+  numClusters   int // if > 0, override hardcoded number of clusters
+  embeddingDim  int
 }
 
 func MakeConfig(preambleStr string, images bool) *Config {
@@ -41,6 +42,12 @@ func DEFAULT_URL_HINT_SZ() uint64 {
 }
 
 func (c *Config) EMBEDDINGS_DIM() uint64 {
+  // Use config if available
+  if c.embeddingDim > 0 {
+    return uint64(c.embeddingDim)
+  }
+
+  // Default values
   if !c.imageSearch {
     return 192
   } else {
@@ -73,7 +80,6 @@ func (c *Config) TOTAL_NUM_CLUSTERS() int {
   } else {
     return 42528
   }
-
 }
 
 // Round up (# clusters / # embedding servers)
