@@ -47,7 +47,7 @@ class Clusterer(ABC):
             self.logger.info("Clustering already complete")
         else:
             self.logger.info("Clustering not yet complete, starting clustering")
-            self.config.clustering_path = f"data/{self.config.uuid}/clustering"
+            self.config.clustering_path = f"data/{self.config.uuid}/clusters"
             self.processing_path = os.path.join(
                 self.config.clustering_path, "processing"
             )
@@ -213,7 +213,7 @@ class Clusterer(ABC):
                     embed = self.embeddings[doc_idx]
                     url = self.urls[doc_idx]
                     embed_str = ",".join(map(str, embed))
-                    f.write(f"{url} | {embed_str} | {url}\n")
+                    f.write(f"{doc_idx} | {embed_str} | {url}\n")
 
     def _process_clusters(self):
         """Process the clusters to balance the sizes."""
@@ -247,9 +247,9 @@ class Clusterer(ABC):
         new_centroids, assignment_dict = self._sub_clustering(cluster_contents)
 
         self.logger.info(
-            "Writing to file -- %s/%d",
-            f"{self.processing_path}/processed_clusters",
-            f"cluster_{cluster_idx}.txt",
+            "Writing to file -- %s/cluster_%d.txt",
+            self.processing_path + "/processed_clusters",
+            cluster_idx,
         )
 
         for bundle in tqdm(assignment_dict, desc="Writing bundles"):

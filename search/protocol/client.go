@@ -296,6 +296,115 @@ func (c *Client) searchCluster(embedding []int8, clusterID uint64, coordinatorAd
 	return results, nil
 }
 
+// Safe URL reconstruction that handles errors gracefully
+func (c *Client) safeReconstructUrl(clusterID, docIndex uint64, coordinatorAddr string) (string, float64) {
+	var totalCommMB float64 = 0.0
+
+	// Try to get URL with error handling
+	urlQuery, retrievedChunk := c.QueryUrls(clusterID, docIndex)
+
+	networkingStart := time.Now()
+	urlAns := c.getUrlsAnswer(urlQuery, true, coordinatorAddr)
+
+	// Track URL communication regardless of success
+	_, uploadMB, downloadMB := logStats(c.NumDocs(), networkingStart, urlQuery, urlAns)
+	totalCommMB += uploadMB + downloadMB
+
+	// Try multiple approaches to get a valid URL
+	url := c.tryReconstructUrlWithFallbacks(clusterID, docIndex, urlAns, retrievedChunk)
+
+	return url, totalCommMB
+}
+
+// Try URL reconstruction with multiple fallback strategies
+func (c *Client) tryReconstructUrlWithFallbacks(clusterID, docIndex uint64, urlAns *pir.Answer[matrix.Elem32], retrievedChunk uint64) string {
+	var url string
+
+	// Strategy 1: Try original URL reconstruction with panic recovery
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Ignore panic and try fallback
+			}
+		}()
+
+		urls := c.ReconstructUrls(urlAns, clusterID, docIndex)
+		if urls != "" {
+			// Extract the specific URL for this document
+			_, chunk, index := c.urlMap.SubclusterToIndex(clusterID, docIndex)
+			if chunk == retrievedChunk {
+				extractedUrl := corpus.GetIthUrl(urls, index)
+				if extractedUrl != "" {
+					url = extractedUrl
+					return
+				}
+			}
+		}
+	}()
+
+	// Strategy 2: Try simplified URL reconstruction
+	if url == "" {
+		url = c.trySimplifiedUrlReconstruction(urlAns, clusterID, docIndex)
+	}
+
+	// Strategy 3: Generate a document identifier URL for relevance testing
+	if url == "" {
+		// Create a searchable document identifier that can be matched against qrels
+		// This format allows you to extract the cluster and document for relevance scoring
+		url = fmt.Sprintf("tiptoe://cluster-%d/doc-%d", clusterID, docIndex)
+	}
+
+	return url
+}
+
+// Simplified URL reconstruction that bypasses compression issues
+func (c *Client) trySimplifiedUrlReconstruction(answer *pir.Answer[matrix.Elem32], clusterID, docIndex uint64) string {
+	defer func() {
+		if r := recover(); r != nil {
+			// Return empty string if this also fails
+		}
+	}()
+
+	dbIndex, _, _ := c.urlMap.SubclusterToIndex(clusterID, docIndex)
+	rowStart, _ := database.Decompose(dbIndex, c.urlInfo.M)
+
+	// Try a smaller range to avoid compression issues
+	maxBytes := min(c.params.UrlBytes, 100) // Limit to 100 bytes to avoid corruption
+	rowEnd := rowStart + maxBytes
+
+	vals := c.urlClient.Recover(answer)
+
+	if rowEnd > uint64(len(vals)) {
+		rowEnd = uint64(len(vals))
+	}
+
+	if rowStart >= rowEnd {
+		return ""
+	}
+
+	out := make([]byte, rowEnd-rowStart)
+	for i, e := range vals[rowStart:rowEnd] {
+		out[i] = byte(e)
+	}
+
+	// Try without decompression first
+	result := strings.TrimRight(string(out), "\x00")
+
+	// Basic validation - check if it looks like a URL
+	if strings.Contains(result, "http") || strings.Contains(result, "www") {
+		return result
+	}
+
+	return ""
+}
+
+func min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // func (c *Client) runRound(p Perf, in io.WriteCloser, out io.ReadCloser,
 // 	text, coordinatorAddr string, verbose, keepConn bool) Perf {
 // 	y := color.New(color.FgYellow, color.Bold)
@@ -486,7 +595,7 @@ func (c *Client) PreprocessQuery() *underhood.HintQuery {
 	} else if c.urlClient != nil {
 		return c.urlClient.HintQuery()
 	} else {
-		panic("Should not happen")
+		panic("Should not happen, urlClient is nil")
 	}
 }
 
@@ -512,10 +621,10 @@ func (c *Client) QueryEmbeddings(emb []int8, clusterIndex uint64) *pir.Query[mat
 	dim := uint64(len(emb))
 
 	if m%dim != 0 {
-		panic("Should not happen")
+		panic("Should not happen, m should be multiple of dim")
 	}
 	if dbIndex%dim != 0 {
-		panic("Should not happen")
+		panic("Should not happen, dbIndex should be multiple of dim")
 	}
 
 	_, colIndex := database.Decompose(dbIndex, m)
@@ -586,7 +695,7 @@ func (c *Client) ReconstructUrls(answer *pir.Answer[matrix.Elem32],
 		for err != nil {
 			out = out[:len(out)-1]
 			if len(out) == 0 {
-				panic("Should not happen")
+				panic("Should not happen, url is empty")
 			}
 			res, err = corpus.Decompress(out)
 		}

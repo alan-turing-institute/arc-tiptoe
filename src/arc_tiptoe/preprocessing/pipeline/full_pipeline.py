@@ -158,7 +158,7 @@ class PreprocessingPipeline:
             "clustering": {
                 "total_clusters": self.config.cluster.get("num_clusters"),
                 "search_top_k": 1,  # 1 by default
-                "centroids_files": f"data/{self.config.uuid}/clusters/centroids.txt",
+                "centroids_file": f"data/{self.config.uuid}/clusters/centroids.txt",
                 "cluster_dir": f"data/{self.config.uuid}/clusters",
             },
             "dim_reduction": {

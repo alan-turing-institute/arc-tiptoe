@@ -53,7 +53,8 @@ class Embedder(ABC):
             if self.config.embed_pars.get("use_gpu", True):
                 if torch.cuda.is_available():
                     self.device = "cuda"
-                if torch.backends.mps.is_available():
+                    self.logger.info("Using cuda GPU")
+                elif torch.backends.mps.is_available():
                     self.device = "mps"
             self.model = self.load_model(self.config.embed_model, self.device)
 
