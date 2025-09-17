@@ -47,6 +47,7 @@ class Clusterer(ABC):
             self.logger.info("Clustering already complete")
         else:
             self.logger.info("Clustering not yet complete, starting clustering")
+            print(self.config.clustering_path)
             self.processing_path = os.path.join(
                 self.config.clustering_path, "processing"
             )
