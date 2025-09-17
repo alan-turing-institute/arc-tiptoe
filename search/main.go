@@ -286,6 +286,24 @@ func url_server(conf *config.Config) {
 
 }
 
+func multiCluster(coordinatorIP string, conf *config.Config) {
+	args := flag.Args()
+	if len(args) < 4 {
+		fmt.Println("Usage: go run . multi-cluster coordinator-ip query max_clusters")
+		return
+	}
+
+	coordinatorIP = args[1]
+	query := args[2]
+	maxClusters, err := strconv.Atoi(args[3])
+	if err != nil {
+		panic("Invalid max_clusters")
+	}
+
+	coordinatorAddr := utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort)
+	protocol.RunMultiClusterExperiment(coordinatorAddr, query, maxClusters, conf)
+}
+
 func main() {
 	flag.Parse() // Moved to top so flags are parsed before use
 
@@ -361,6 +379,8 @@ func main() {
 		emb_server(conf)
 	case "url-server":
 		url_server(conf)
+	case "multi-cluster":
+		multiCluster(coordinatorIP, conf)
 	default:
 		printUsage()
 	}

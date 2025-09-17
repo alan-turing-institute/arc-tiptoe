@@ -39,6 +39,10 @@ func (c *Config) SetPreprocessConfigPath(path string) {
 	c.preprocessConfigPath = path
 }
 
+func (c *Config) GetSearchTopK() int {
+	return c.searchTopK
+}
+
 func (c *Config) PREAMBLE() string {
 	return c.preamble
 }
