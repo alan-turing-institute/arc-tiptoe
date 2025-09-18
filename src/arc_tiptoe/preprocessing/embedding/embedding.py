@@ -57,6 +57,11 @@ class Embedder(ABC):
                 elif torch.backends.mps.is_available():
                     self.device = "mps"
             self.model = self.load_model(self.config.embed_model, self.device)
+            if self.config.embed_pars["preprocessing_required"]:
+                print(
+                    f"Preprocessing documents to truncated at "
+                    f"{self.config.embed_pars['sequence_length']}"
+                )
 
     def _return_config_in_pipeline(self):
         if self.within_pipeline:
@@ -183,7 +188,10 @@ class Embedder(ABC):
                 {
                     "doc_id": doc.doc_id,
                     "body": (
-                        self._preprocess_data(doc.body)
+                        self._preprocess_data(
+                            doc.body,
+                            max_length=self.config.embed_pars["sequence_length"],
+                        )
                         if self.config.embed_pars["preprocessing_required"]
                         else doc.body
                     ),
@@ -291,4 +299,6 @@ class SentenceTransformerEmbedder(Embedder):
 
     def load_model(self, model_name: str, device: str):
         """Load the SentenceTransformer model."""
-        return tt_models.load_sentence_transformer(model_name, device=device)
+        model = tt_models.load_sentence_transformer(model_name, device=device)
+        print(f"Model is using device {model.device}")
+        return model
