@@ -38,4 +38,5 @@ def modernbert_preprocess(text: str) -> str:
 PREPROCESSING_METHODS = {
     "msmarco-distilbert-base-tas-b": distilbert_preprocess,
     "nomic-ai/modernbert-embed-base": modernbert_preprocess,
+    "google/embeddinggemma-300m": distilbert_preprocess,
 }

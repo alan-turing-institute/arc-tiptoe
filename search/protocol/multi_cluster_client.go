@@ -31,10 +31,15 @@ type MultiClusterResult struct {
 func RunMultiClusterExperiment(coordinatorAddr, queryText string, maxClusters int, conf *config.Config) {
 	fmt.Printf("Multi-cluster experiment: '%s' (max %d clusters)\n", queryText, maxClusters)
 
-	// Setup client once
+	// Setup client with proper initialization
 	client := NewClient(true)
 	hint := client.getHint(true, coordinatorAddr)
 	client.Setup(hint)
+
+	// CRITICAL: Do preprocessing to initialize PIR client state
+	fmt.Printf("   Running preprocessing...\n")
+	perf := client.preprocessRound(coordinatorAddr, false, true)
+	fmt.Printf("   Preprocessing completed\n")
 
 	// Setup embedding process with top-k support
 	in, out := embeddings.SetupEmbeddingProcessWithTopK(client.NumClusters(), maxClusters, conf)
@@ -54,13 +59,13 @@ func RunMultiClusterExperiment(coordinatorAddr, queryText string, maxClusters in
 	for numClusters := 1; numClusters <= len(topClusters) && numClusters <= maxClusters; numClusters++ {
 		clustersToSearch := topClusters[:numClusters]
 
-		fmt.Printf("   🎯 Testing %d clusters: %v\n", numClusters, clustersToSearch)
+		fmt.Printf("   Testing %d clusters: %v\n", numClusters, clustersToSearch)
 
 		startTime := time.Now()
 
 		// Search each cluster and collect results + communication costs
 		allResults := []MultiClusterSearchResult{}
-		totalCommMB := 0.0
+		totalCommMB := perf.upOffline + perf.downOffline // Include preprocessing costs
 
 		for _, clusterID := range clustersToSearch {
 			fmt.Printf("     Searching cluster %d...\n", clusterID)
@@ -90,7 +95,7 @@ func RunMultiClusterExperiment(coordinatorAddr, queryText string, maxClusters in
 
 		latencyMs := float64(time.Since(startTime).Nanoseconds()) / 1e6
 
-		fmt.Printf("   %d clusters: %.1fms, %.6f MB comm, %d total results\n",
+		fmt.Printf("  %d clusters: %.1fms, %.6f MB comm, %d total results\n",
 			numClusters, latencyMs, totalCommMB, len(allResults))
 
 		// Output structured results for Python to parse
