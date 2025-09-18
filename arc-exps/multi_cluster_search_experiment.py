@@ -417,7 +417,9 @@ class MultiClusterSearchExperiment:
                             )
 
                         print(
-                            f"   ✅ {current_cluster_count} clusters: {current_latency:.1f}ms, {current_comm_mb:.6f} MB comm, {len(current_results)} results"
+                            f"   {current_cluster_count} clusters: "
+                            f"{current_latency:.1f}ms, {current_comm_mb:.6f} MB comm, "
+                            f"{len(current_results)} results"
                         )
                     continue
 

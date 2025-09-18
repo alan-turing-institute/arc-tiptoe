@@ -4,11 +4,11 @@
 package utils
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
+	"net/rpc"
 	"strconv"
-  "net/rpc"
-  "crypto/tls"
 )
 
 var publicKey = `-----BEGIN CERTIFICATE-----
@@ -30,9 +30,10 @@ AwEHoUQDQgAEU7EtIv3GVZKMduiOwmQBzrqIXnF84tNhcPSNtnw8cTgF8CPfJ0wc
 CbIvgQXEeZpTgn+A5N7YpdooUiwtICadeA==
 -----END EC PRIVATE KEY-----
 `
+
 const (
-  ServerPort = 1234
-  ServerPort2 = 1235
+	ServerPort      = 1234
+	ServerPort2     = 1235
 	CoordinatorPort = 1237
 
 	EmbServerPortStart = 1240
@@ -40,7 +41,7 @@ const (
 )
 
 func LocalAddr(port int) string {
-	return "127.0.0.1:" + strconv.Itoa(port)
+	return localIP().String() + ":" + strconv.Itoa(port)
 }
 
 func RemoteAddr(ip string, port int) string {
@@ -48,22 +49,25 @@ func RemoteAddr(ip string, port int) string {
 }
 
 func localIP() net.IP {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		fmt.Println(err)
-		panic("Error looking up own IP")
-	}
+	// For local dev, use localhost
+	return net.ParseIP("127.0.0.1")
 
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP
-			}
-		}
-	}
+	// addrs, err := net.InterfaceAddrs()
+	// if err != nil {
+	//   fmt.Println(err)
+	//   panic("Error looking up own IP")
+	// }
 
-	panic("Own IP not found")
-	return nil
+	// for _, addr := range addrs {
+	//   if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+	//     if ipnet.IP.To4() != nil {
+	//       return ipnet.IP
+	//     }
+	//   }
+	// }
+
+	// panic("Own IP not found")
+	// return nil
 }
 
 /*

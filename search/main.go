@@ -18,9 +18,6 @@ var preamble = flag.String("preamble", "../", "Preamble")
 // Path to search config
 var searchConfig = flag.String("search_config", "", "Path to search config JSON file")
 
-// Path to preprocessing config JSON
-var preprocessConfig = flag.String("preprocess_config", "", "Path to preprocessing config JSON file")
-
 // Whether or not running image search
 var image_search = flag.Bool("image_search", false, "Image search")
 
@@ -286,24 +283,6 @@ func url_server(conf *config.Config) {
 
 }
 
-func multiCluster(coordinatorIP string, conf *config.Config) {
-	args := flag.Args()
-	if len(args) < 4 {
-		fmt.Println("Usage: go run . multi-cluster coordinator-ip query max_clusters")
-		return
-	}
-
-	coordinatorIP = args[1]
-	query := args[2]
-	maxClusters, err := strconv.Atoi(args[3])
-	if err != nil {
-		panic("Invalid max_clusters")
-	}
-
-	coordinatorAddr := utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort)
-	protocol.RunMultiClusterExperiment(coordinatorAddr, query, maxClusters, conf)
-}
-
 func main() {
 	flag.Parse() // Moved to top so flags are parsed before use
 
@@ -326,28 +305,6 @@ func main() {
 			fmt.Printf("Error loading search config: %v\n", err)
 			os.Exit(1)
 		}
-	} else if *preprocessConfig != "" {
-		// UUID-based approach
-		conf = &config.Config{}
-		err = conf.MakeConfigFromPreprocessConfig(*preamble, *preprocessConfig, *image_search)
-		if err != nil {
-			fmt.Printf("Error loading preprocessing config: %v\n", err)
-			fmt.Printf("Make sure the config file exists and contains a valid UUID\n")
-			os.Exit(1)
-		}
-		fmt.Printf("Using UUID-based data directory: %s\n", conf.PREAMBLE())
-
-		// Log the dynamic configuration
-		fmt.Printf("Dynamic configuration:\n")
-		fmt.Printf("Using UUID-based data directory: %s\n", conf.PREAMBLE())
-		fmt.Printf("Total clusters: %d\n", conf.TOTAL_NUM_CLUSTERS())
-		fmt.Printf("Embedding servers: %d\n", conf.MAX_EMBEDDINGS_SERVERS())
-		fmt.Printf("Clusters per embedding server: %d\n", conf.EMBEDDINGS_CLUSTERS_PER_SERVER())
-		fmt.Printf("URL servers: %d\n", conf.MAX_URL_SERVERS())
-		fmt.Printf("Clusters per URL server: %d\n", conf.URL_CLUSTERS_PER_SERVER())
-		fmt.Printf("Default embedding hint size: %d\n", conf.DEFAULT_EMBEDDINGS_HINT_SZ())
-		fmt.Printf("Default URL hint size: %d\n", config.DEFAULT_URL_HINT_SZ())
-		fmt.Printf("Image search mode: %v\n", *image_search)
 	} else {
 		// Legacy approach - direct preamble
 		conf = config.MakeConfig(*preamble+"data", *image_search)
@@ -379,8 +336,6 @@ func main() {
 		emb_server(conf)
 	case "url-server":
 		url_server(conf)
-	case "multi-cluster":
-		multiCluster(coordinatorIP, conf)
 	default:
 		printUsage()
 	}

@@ -11,7 +11,6 @@ type Config struct {
 	embeddingDim         int
 	searchTopK           int
 	searchConfigPath     string
-	preprocessConfigPath string
 }
 
 func MakeConfig(preambleStr string, images bool) *Config {
@@ -27,16 +26,8 @@ func (c *Config) GetSearchConfigPath() string {
 	return c.searchConfigPath
 }
 
-func (c *Config) GetPreprocessConfigPath() string {
-	return c.preprocessConfigPath
-}
-
 func (c *Config) SetSearchConfigPath(path string) {
 	c.searchConfigPath = path
-}
-
-func (c *Config) SetPreprocessConfigPath(path string) {
-	c.preprocessConfigPath = path
 }
 
 func (c *Config) GetSearchTopK() int {
