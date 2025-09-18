@@ -24,6 +24,7 @@ def distilbert_preprocess(text: str, max_length: int = 512) -> str:
     """
     if not text:
         return ""
+    print(f'Truncating document to {max_length}')
     return " ".join(text.split()[:max_length])
 
 
