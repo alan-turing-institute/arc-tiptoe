@@ -5,7 +5,7 @@ Dimentionality reduction methods. Includes:
 TODO:
 - t-SNE?
 - UMAP?
-- GemmaEmbed clustering
+- GemmaEmbed dim reduction?
 """
 
 import os
@@ -32,6 +32,7 @@ def run_pca(pca_components, vecs):
     data_max = np.max(transformed)
     data_range = max(abs(data_min), abs(data_max))
 
+    # TODO: generalise quantisation
     scale_factor = 127.0 / data_range
     quantized = np.clip(np.round(transformed * scale_factor), -127, 127)
 

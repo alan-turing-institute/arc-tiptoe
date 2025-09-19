@@ -337,7 +337,7 @@ class MultiClusterSearchExperiment:
             query_text=query_text,
             cluster_search_results={},
             latency_results={},
-            throughput_results={},
+            throughput_results={},  # Will store communication costs
         )
 
         try:
@@ -367,35 +367,31 @@ class MultiClusterSearchExperiment:
                 print(f"Go multi-cluster failed: {stderr.decode()}")
                 return result
 
-            # Parse the complete output to extract results for each cluster count
+            # Parse the output
             output = stdout.decode()
             output_lines = output.split("\n")
 
             current_cluster_count = None
             current_latency = None
-            current_throughput = None
+            current_comm_mb = None  # Communication cost instead of throughput
             in_results_section = False
             current_results = []
 
             for line in output_lines:
                 line = line.strip()
 
-                # Parse cluster count
                 if line.startswith("CLUSTER_COUNT:"):
                     current_cluster_count = int(line.split(":")[1])
                     continue
 
-                # Parse latency
                 if line.startswith("LATENCY_MS:"):
                     current_latency = float(line.split(":")[1])
                     continue
 
-                # Parse throughput
-                if line.startswith("THROUGHPUT_QPS:"):
-                    current_throughput = float(line.split(":")[1])
+                if line.startswith("COMMUNICATION_MB:"):
+                    current_comm_mb = float(line.split(":")[1])
                     continue
 
-                # Parse results section
                 if line == "RESULTS_START":
                     in_results_section = True
                     current_results = []
@@ -406,7 +402,6 @@ class MultiClusterSearchExperiment:
 
                     # Store results for this cluster count
                     if current_cluster_count is not None:
-                        # Convert to the format expected by results_to_dataframe
                         url_score_pairs = [(r.url, r.score) for r in current_results]
 
                         result.cluster_search_results[current_cluster_count] = (
@@ -416,20 +411,20 @@ class MultiClusterSearchExperiment:
                             result.latency_results[current_cluster_count] = (
                                 current_latency
                             )
-                        if current_throughput is not None:
+                        if current_comm_mb is not None:
                             result.throughput_results[current_cluster_count] = (
-                                current_throughput
+                                current_comm_mb  # Store as "throughput" for compatibility
                             )
 
                         print(
-                            f"   {current_cluster_count} clusters: {current_latency:.1f}ms, {current_throughput:.2f} QPS, {len(current_results)} results"
+                            f"   {current_cluster_count} clusters: "
+                            f"{current_latency:.1f}ms, {current_comm_mb:.6f} MB comm, "
+                            f"{len(current_results)} results"
                         )
                     continue
 
-                # Parse individual results
                 if in_results_section and line.startswith("RESULT:"):
                     try:
-                        # Format: RESULT:url:score:cluster_id
                         parts = line.split(":", 3)
                         if len(parts) >= 4:
                             url = parts[1]
@@ -441,12 +436,11 @@ class MultiClusterSearchExperiment:
                                     url=url, score=score, cluster_id=cluster_id
                                 )
                             )
-
                     except (ValueError, IndexError):
                         continue
 
         except Exception as e:
-            print(f"Error processing query: {e}")
+            print(f"❌ Error processing query: {e}")
 
         return result
 
@@ -628,7 +622,6 @@ class MultiClusterSearchExperiment:
         self, results: list[QueryExperimentResult]
     ) -> pd.DataFrame:
         """Convert experiment results to DataFrame"""
-
         df_data = []
 
         for result in results:
@@ -638,16 +631,15 @@ class MultiClusterSearchExperiment:
             for cluster_count in range(1, self.max_clusters + 1):
                 # Search results
                 search_results = result.cluster_search_results.get(cluster_count, [])
-                url_score_pairs = [(r.url, r.score) for r in search_results]
-                row[f"{cluster_count}_cluster_search_results"] = url_score_pairs
+                row[f"{cluster_count}_cluster_search_results"] = search_results
 
                 # Performance metrics
                 row[f"{cluster_count}_cluster_latency_result"] = (
                     result.latency_results.get(cluster_count, 0)
                 )
-                row[f"{cluster_count}_cluster_throughput_result"] = (
+                row[f"{cluster_count}_cluster_communication_mb"] = (
                     result.throughput_results.get(cluster_count, 0)
-                )
+                )  # Communication cost
 
             df_data.append(row)
 
@@ -664,7 +656,7 @@ class MultiClusterSearchExperiment:
         with open(json_file, "w") as f:
             json.dump(detailed_results, f, indent=2)
 
-        print("   Results saved to:")
+        print(f"\n📁 Results saved to:")
         print(f"   CSV: {csv_file}")
         print(f"   JSON: {json_file}")
 

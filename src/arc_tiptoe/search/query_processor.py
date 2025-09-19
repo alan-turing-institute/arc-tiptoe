@@ -80,22 +80,13 @@ class QueryProcessor:
 
     def _load_preprocessing_config(self, config_path: str) -> dict:
         """Load preprocessing configuration and extract relevant info"""
-        # Use your existing PreProcessConfig class
         preprocess_config = PreProcessConfig(config_path)
-
-        # Extract model dimensions (you might need to add this method to your config)
-        model_dims = {
-            "google/embeddinggemma-300m": 768,
-            "sentence-transformers/all-MiniLM-L6-v2": 384,
-            "msmarco-distilbert-base-tas-b": 768,
-        }
-        original_dim = model_dims.get(preprocess_config.embed_model, 768)
 
         return {
             "uuid": preprocess_config.uuid,
             "data_path": f"data/{preprocess_config.uuid}",
             "model_name": preprocess_config.embed_model,
-            "original_dim": original_dim,
+            "original_dim": 768,
             "reduced_dim": preprocess_config.dim_red.get("dim_red_dimension", 192),
             "num_clusters": preprocess_config.cluster.get("num_clusters", 1280),
             "search_top_k": 1,  # Default
@@ -154,7 +145,9 @@ class QueryProcessor:
             current_dir = Path.cwd()
             if current_dir.name == "search":
                 self.centroids_file = str(Path("..") / self.config["centroids_file"])
-                self.pca_components_file = str(Path("..") / self.config["pca_components_file"])
+                self.pca_components_file = str(
+                    Path("..") / self.config["pca_components_file"]
+                )
                 self.faiss_index_file = str(Path("..") / self.config["faiss_index"])
             else:
                 # Use paths as-is
@@ -231,9 +224,9 @@ class QueryProcessor:
         cluster_indices = self._find_nearest_clusters(embedding_reduced, top_k_clusters)
 
         result = {
-            "Cluster_index": int(cluster_indices[0]) if cluster_indices else 0,
+            "ClusterIndex": int(cluster_indices[0]) if cluster_indices else 0,
             "Emb": embedding_quantized.tolist(),
-            "Top_k_clusters": cluster_indices,
+            "TopKClusterIndices": cluster_indices,
         }
         # print(result)
         return result

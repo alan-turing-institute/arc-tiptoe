@@ -11,19 +11,16 @@ import (
 )
 
 func SetupEmbeddingProcess(numClusters int, conf *config.Config) (io.WriteCloser, io.ReadCloser) {
-	// Determine which config to use
-	var configPath string
-	if searchConfigPath := conf.GetSearchConfigPath(); searchConfigPath != "" {
-		configPath = searchConfigPath
-	} else if preprocessConfigPath := conf.GetPreprocessConfigPath(); preprocessConfigPath != "" {
-		configPath = preprocessConfigPath
-	} else {
-		panic("No configuration file available for embedding process")
-	}
+  var configPath string
+  if searchConfigPath := conf.GetSearchConfigPath(); searchConfigPath != "" {
+    configPath = searchConfigPath
+  } else {
+    panic("No configuration file available for embedding process")
+  }
 
 	toRun := "embeddings/embed_text.py"
 	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters))
-
+  
 	stdin, err1 := cmd.StdinPipe()
 	if err1 != nil {
 		panic(err1)
@@ -40,37 +37,6 @@ func SetupEmbeddingProcess(numClusters int, conf *config.Config) (io.WriteCloser
 
 	time.Sleep(5 * time.Second) // So the python process has time to start up
 
-	return stdin, stdout
-}
-
-func SetupEmbeddingProcessWithTopK(numClusters int, topK int, conf *config.Config) (io.WriteCloser, io.ReadCloser) {
-	var configPath string
-	if searchConfigPath := conf.GetSearchConfigPath(); searchConfigPath != "" {
-		configPath = searchConfigPath
-	} else if preprocessConfigPath := conf.GetPreprocessConfigPath(); preprocessConfigPath != "" {
-		configPath = preprocessConfigPath
-	} else {
-		panic("No configuration file available for embedding process")
-	}
-
-	toRun := "embeddings/embed_text.py"
-	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters), strconv.Itoa(topK))
-
-	stdin, err1 := cmd.StdinPipe()
-	if err1 != nil {
-		panic(err1)
-	}
-
-	stdout, err2 := cmd.StdoutPipe()
-	if err2 != nil {
-		panic(err2)
-	}
-
-	if err := cmd.Start(); err != nil {
-		panic(err)
-	}
-
-	time.Sleep(5 * time.Second)
 	return stdin, stdout
 }
 

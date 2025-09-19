@@ -13,7 +13,9 @@ def load_sentence_transformer(
 ) -> SentenceTransformer:
     """Load a SentenceTransformer model."""
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    os.environ["OMP_NUM_THREADS"] = "1"
+    logical_cpus = os.cpu_count()
+    print(f"Number of cpus: {logical_cpus}")
+    os.environ["OMP_NUM_THREADS"] = str(logical_cpus)
     return SentenceTransformer(model_name, device=device)
 
 
@@ -38,4 +40,5 @@ def modernbert_preprocess(text: str) -> str:
 PREPROCESSING_METHODS = {
     "msmarco-distilbert-base-tas-b": distilbert_preprocess,
     "nomic-ai/modernbert-embed-base": modernbert_preprocess,
+    "google/embeddinggemma-300m": distilbert_preprocess,
 }

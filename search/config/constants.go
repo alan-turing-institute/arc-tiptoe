@@ -5,13 +5,13 @@ import (
 )
 
 type Config struct {
-	preamble             string
-	imageSearch          bool
-	numClusters          int // if > 0, override hardcoded number of clusters
-	embeddingDim         int
-	searchTopK           int
-	searchConfigPath     string
-	preprocessConfigPath string
+	preamble                   string
+	imageSearch                bool
+	numClusters                int // if > 0, override hardcoded number of clusters
+	embeddingDim               int
+	searchTopK                 int
+	searchConfigPath           string
+	numSearchResultsPerCluster int // max results to return per cluster
 }
 
 func MakeConfig(preambleStr string, images bool) *Config {
@@ -27,16 +27,16 @@ func (c *Config) GetSearchConfigPath() string {
 	return c.searchConfigPath
 }
 
-func (c *Config) GetPreprocessConfigPath() string {
-	return c.preprocessConfigPath
-}
-
 func (c *Config) SetSearchConfigPath(path string) {
 	c.searchConfigPath = path
 }
 
-func (c *Config) SetPreprocessConfigPath(path string) {
-	c.preprocessConfigPath = path
+func (c *Config) GetNumSearchResultsPerCluster() int {
+	return c.numSearchResultsPerCluster
+}
+
+func (c *Config) SetNumSearchResultsPerCluster(n int) {
+	c.numSearchResultsPerCluster = n
 }
 
 func (c *Config) GetSearchTopK() int {

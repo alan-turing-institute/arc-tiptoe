@@ -12,4 +12,4 @@ if [ ! -f ../corpus/medcorpus.csv ]; then
 fi
 
 # Test correctness of nearest-neighbor and url services
-go1.19.13 test -timeout 0 -run Fake -medcorpus ../corpus/medcorpus.csv
+go test -timeout 0 -run Fake -medcorpus ../corpus/medcorpus.csv

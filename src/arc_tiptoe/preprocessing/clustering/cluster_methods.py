@@ -5,6 +5,7 @@ Clustering methods. Includes:
 TODO:
 - HDBSCAN
 - Agglomerative Clustering
+- GemmaEmbed Clustering?
 """
 
 import faiss
