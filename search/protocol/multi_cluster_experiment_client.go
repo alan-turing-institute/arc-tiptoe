@@ -5,6 +5,7 @@
 package protocol
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/ahenzinger/tiptoe/search/config"
@@ -12,17 +13,17 @@ import (
 )
 
 type expQueryClusterResults struct {
-	clusterRank  int
-	clusterIndex int
-	results      []singleQueryClusterResult
-	perfUp       float64
-	perfDown     float64
+	ClusterRank  int                        `json:"cluster_rank"`
+	ClusterIndex int                        `json:"cluster_index"`
+	Results      []singleQueryClusterResult `json:"results"`
+	PerfUp       float64                    `json:"perf_up"`
+	PerfDown     float64                    `json:"perf_down"`
 }
 
 type expAllClusterResults struct {
-	allResults    []expQueryClusterResults
-	finalPerfUp   float64
-	finalPerfDown float64
+	AllResults    []expQueryClusterResults `json:"all_results"`
+	FinalPerfUp   float64                  `json:"final_perf_up"`
+	FinalPerfDown float64                  `json:"final_perf_down"`
 }
 
 // Multi cluster experiment will run a series of multi-cluster search queries
@@ -39,23 +40,24 @@ func MultiClusterSearchExperiment(coordinatorAddr string, conf *config.Config, t
 		color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
 		singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, topKCluster, textQuery)
 		var expResults expQueryClusterResults
-		expResults.clusterRank = topKCluster
-		expResults.clusterIndex = singleClusterQueryResult.clusterIndex
-		expResults.results = singleClusterQueryResult.results
-		expResults.perfUp = singleClusterQueryResult.perf.up1 + singleClusterQueryResult.perf.up2 + singleClusterQueryResult.perf.upOffline
-		expResults.perfDown = singleClusterQueryResult.perf.down1 + singleClusterQueryResult.perf.down2 + singleClusterQueryResult.perf.downOffline
+		expResults.ClusterRank = topKCluster
+		expResults.ClusterIndex = singleClusterQueryResult.clusterIndex
+		expResults.Results = singleClusterQueryResult.results
+		expResults.PerfUp = singleClusterQueryResult.perf.up1 + singleClusterQueryResult.perf.up2 + singleClusterQueryResult.perf.upOffline
+		expResults.PerfDown = singleClusterQueryResult.perf.down1 + singleClusterQueryResult.perf.down2 + singleClusterQueryResult.perf.downOffline
 
-		allExperimentResults.allResults = append(allExperimentResults.allResults, expResults)
+		allExperimentResults.AllResults = append(allExperimentResults.AllResults, expResults)
 		if topKCluster == 1 {
-			allExperimentResults.finalPerfUp = expResults.perfUp
-			allExperimentResults.finalPerfDown = expResults.perfDown
+			allExperimentResults.FinalPerfUp = expResults.PerfUp
+			allExperimentResults.FinalPerfDown = expResults.PerfDown
 		} else {
-			allExperimentResults.finalPerfUp += expResults.perfUp
-			allExperimentResults.finalPerfDown += expResults.perfDown
+			allExperimentResults.FinalPerfUp += expResults.PerfUp
+			allExperimentResults.FinalPerfDown += expResults.PerfDown
 		}
 	}
 
-	fmt.Printf("%v\n", allExperimentResults)
+	jExpRes, _ := json.Marshal(allExperimentResults)
+	fmt.Println(string(jExpRes))
 
 	return allExperimentResults
 }

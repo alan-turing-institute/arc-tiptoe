@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"github.com/ahenzinger/tiptoe/search/config"
 	"github.com/ahenzinger/tiptoe/search/protocol"
 	"github.com/ahenzinger/tiptoe/search/utils"
-	"github.com/fatih/color"
 )
 
 // Where the corpus is stored
@@ -56,19 +54,24 @@ func multiClusterClient(coordinatorIP string, conf *config.Config) {
 
 func multiClusterExperiment(coordinatorIP string, conf *config.Config) {
 	args := flag.Args()
+	var queryText string
+	fmt.Printf("Is it reaching here?")
 	if len(args) >= 2 {
-		coordinatorIP = args[1]
+		queryText = args[1]
+	}
+	if len(args) >= 3 {
+		coordinatorIP = args[2]
 	}
 
-	// Run with test query
-	col := color.New(color.FgYellow).Add(color.Bold)
-	col.Printf("Enter test query: ")
-	in := bufio.NewScanner(os.Stdin)
-	in.Scan()
-	text := in.Text()
-	fmt.Printf("\n\n")
+	// // Run with test query
+	// col := color.New(color.FgYellow).Add(color.Bold)
+	// col.Printf("Enter test query: ")
+	// in := bufio.NewScanner(os.Stdin)
+	// in.Scan()
+	// text := in.Text()
+	// fmt.Printf("\n\n")
 
-	protocol.MultiClusterSearchExperiment(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, text, true /* verbose */)
+	protocol.MultiClusterSearchExperiment(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, queryText, false /* verbose */)
 }
 
 func client_latency(coordinatorIP string, conf *config.Config) {

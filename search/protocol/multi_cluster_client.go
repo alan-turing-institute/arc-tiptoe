@@ -25,8 +25,8 @@ import (
 )
 
 type singleQueryClusterResult struct {
-	score int
-	url   string
+	Score int    `json:"score"`
+	Url   string `json:"url"`
 }
 
 type queryClusterResults struct {
@@ -59,8 +59,8 @@ func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbo
 		fmt.Printf("\nFinal combined results:\n")
 		for i, res := range finalResults {
 			fmt.Printf("\t% 3d) [score %s] %s\n", i+1,
-				color.YellowString(fmt.Sprintf("% 4d", res.score)),
-				color.BlueString(res.url))
+				color.YellowString(fmt.Sprintf("% 4d", res.Score)),
+				color.BlueString(res.Url))
 		}
 		fmt.Printf("\n\n")
 
@@ -81,12 +81,12 @@ func parseResultsFromAllClusters(allQueryResults []queryClusterResults, numSearc
 	resultMap := make(map[string]singleQueryClusterResult)
 	for _, clusterResults := range allQueryResults {
 		for _, res := range clusterResults.results {
-			if existing, ok := resultMap[res.url]; ok {
-				if res.score > existing.score {
-					resultMap[res.url] = res
+			if existing, ok := resultMap[res.Url]; ok {
+				if res.Score > existing.Score {
+					resultMap[res.Url] = res
 				}
 			} else {
-				resultMap[res.url] = res
+				resultMap[res.Url] = res
 			}
 		}
 	}
@@ -101,7 +101,7 @@ func parseResultsFromAllClusters(allQueryResults []queryClusterResults, numSearc
 	sortedIndices := utils.SortByScores(func() []int {
 		scores := make([]int, len(combinedResults))
 		for i, res := range combinedResults {
-			scores[i] = res.score
+			scores[i] = res.Score
 		}
 		return scores
 	}())
@@ -258,8 +258,8 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, in io.WriteCloser, 
 				color.YellowString(fmt.Sprintf("% 4d", scores[at])),
 				color.BlueString(corpus.GetIthUrl(urls, index)))
 			queryResults.results = append(queryResults.results, singleQueryClusterResult{
-				score: scores[at],
-				url:   corpus.GetIthUrl(urls, index),
+				Score: scores[at],
+				Url:   corpus.GetIthUrl(urls, index),
 			})
 		}
 		j += 1
