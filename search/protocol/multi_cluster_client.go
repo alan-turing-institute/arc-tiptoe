@@ -35,6 +35,10 @@ type queryClusterResults struct {
 	perf         Perf
 }
 
+// MultiClusterSearchClient runs an interactive multi-cluster search client
+// connecting to the given coordinator address, using the given config
+// If verbose is true, prints out detailed step-by-step information
+
 func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbose bool) {
 	for {
 		col := color.New(color.FgYellow).Add(color.Bold)
