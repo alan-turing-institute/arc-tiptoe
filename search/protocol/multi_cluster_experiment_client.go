@@ -5,6 +5,8 @@
 package protocol
 
 import (
+	"fmt"
+
 	"github.com/ahenzinger/tiptoe/search/config"
 	"github.com/fatih/color"
 )
@@ -26,10 +28,12 @@ type expAllClusterResults struct {
 // Multi cluster experiment will run a series of multi-cluster search queries
 // It will return the results, which will then be picked up by the python experiment script
 // It run per query, the top K clusters as defined in config
-func MultiClusterSearchExperiment(coordinatorAddr string, conf *config.Config, textQuery string, verbose bool) []expAllClusterResults {
+func MultiClusterSearchExperiment(coordinatorAddr string, conf *config.Config, textQuery string, verbose bool) expAllClusterResults {
 	var allExperimentResults expAllClusterResults
-	col := color.New(color.FgYellow).Add(color.Bold)
-	col.Printf("Running multi-cluster search experiment for query: %s\n", textQuery)
+	if verbose {
+		col := color.New(color.FgYellow).Add(color.Bold)
+		col.Printf("Running multi-cluster search experiment for query: %s\n", textQuery)
+	}
 
 	for topKCluster := 1; topKCluster <= conf.GetSearchTopK(); topKCluster++ {
 		color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
@@ -51,5 +55,7 @@ func MultiClusterSearchExperiment(coordinatorAddr string, conf *config.Config, t
 		}
 	}
 
-	return []expAllClusterResults{allExperimentResults}
+	fmt.Printf("%v\n", allExperimentResults)
+
+	return allExperimentResults
 }
