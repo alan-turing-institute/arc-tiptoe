@@ -42,6 +42,10 @@ type SearchConfig struct {
 		FAISSIndex        string `json:"faiss_index"`
 		ArtifactDirectory string `json:"artifact_directory"`
 	} `json:"artifacts"`
+
+	Search struct {
+		MaxResults int `json:"max_results"`
+	} `json:"search"`
 }
 
 func LoadSearchConfig(configPath string) (*SearchConfig, error) {
@@ -73,6 +77,7 @@ func (c *Config) LoadFromSearchConfig(preambleStr string, searchConfigPath strin
 	c.numClusters = searchConfig.Clustering.TotalClusters
 	c.embeddingDim = searchConfig.Embedding.ReducedDim
 	c.searchTopK = searchConfig.Clustering.SearchTopK
+	c.numSearchResultsPerCluster = searchConfig.Search.MaxResults
 
 	// Log configuration
 	fmt.Printf("Search Configuration:\n")

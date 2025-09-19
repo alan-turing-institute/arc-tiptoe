@@ -182,6 +182,7 @@ class PreprocessingPipeline:
                     f"dim{self.config.dim_red.get('dim_red_dimension')}"
                 ),
             },
+            "search": {"max_results": 100},  # default to 100 for now
         }
 
         # save search config

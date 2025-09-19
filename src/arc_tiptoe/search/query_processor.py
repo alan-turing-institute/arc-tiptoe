@@ -224,9 +224,9 @@ class QueryProcessor:
         cluster_indices = self._find_nearest_clusters(embedding_reduced, top_k_clusters)
 
         result = {
-            "Cluster_index": int(cluster_indices[0]) if cluster_indices else 0,
+            "ClusterIndex": int(cluster_indices[0]) if cluster_indices else 0,
             "Emb": embedding_quantized.tolist(),
-            "Top_k_clusters": cluster_indices,
+            "TopKClusterIndices": cluster_indices,
         }
         # print(result)
         return result

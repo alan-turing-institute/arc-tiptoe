@@ -43,6 +43,15 @@ func client(coordinatorIP string, conf *config.Config) {
 
 }
 
+func multiClusterClient(coordinatorIP string, conf *config.Config) {
+	args := flag.Args()
+	if len(args) >= 2 {
+		coordinatorIP = args[1]
+	}
+
+	protocol.MultiClusterSearchClient(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, true /* verbose */)
+}
+
 func client_latency(coordinatorIP string, conf *config.Config) {
 	debug.SetMemoryLimit(20*2 ^ (30))
 	args := flag.Args()
@@ -314,6 +323,8 @@ func main() {
 	switch args[0] {
 	case "client":
 		client(coordinatorIP, conf)
+	case "multi-cluster-client": // New multi-cluster client
+		multiClusterClient(coordinatorIP, conf)
 	case "client-latency":
 		client_latency(coordinatorIP, conf)
 	case "client-tput-embed":
