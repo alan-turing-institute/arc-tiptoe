@@ -12,3 +12,13 @@ configs/
 .DS_Store
 .vscode/
 build/
+.venv*
+.temp
+results/*
+models/*
+
+# Python egg files
+*.egg
+*.egg-info/
+*.egg-info
+.eggs/
