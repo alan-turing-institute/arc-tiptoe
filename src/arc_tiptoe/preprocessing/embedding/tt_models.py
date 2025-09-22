@@ -15,7 +15,8 @@ def load_sentence_transformer(
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     logical_cpus = os.cpu_count()
     print(f"Number of cpus: {logical_cpus}")
-    os.environ["OMP_NUM_THREADS"] = str(logical_cpus)
+    # os.environ["OMP_NUM_THREADS"] = str(logical_cpus)
+    os.environ["OMP_NUM_THREADS"] = "1"
     return SentenceTransformer(model_name, device=device)
 
 
