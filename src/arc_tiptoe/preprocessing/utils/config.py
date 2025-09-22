@@ -103,10 +103,8 @@ class PreProcessConfig:
         # load config from existing or create new config
         self._load_config(config_path)
 
-        if not self._check_for_config(config_path):
-            # create directory structure
-            self.uuid = self._gen_uuid()
-            self._gen_directory_structure()
+        # create directory structure
+        self._gen_directory_structure()
 
         logging.basicConfig(
             level=logging.INFO,

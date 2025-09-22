@@ -44,10 +44,6 @@ class Embedder(ABC):
             if within_pipeline:
                 self._return_config_in_pipeline()
         else:
-            self.gen_directory_structure()
-            self.config.embeddings_path = os.path.join(
-                "data", self.config.uuid, "embedding", "embeddings"
-            )
             self.dataset = None
             self.device = "cpu"
             if self.config.embed_pars.get("use_gpu", True):
