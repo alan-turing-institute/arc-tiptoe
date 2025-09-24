@@ -328,7 +328,7 @@ class Clusterer(ABC):
         )
         init_clusters = list(assignment_dict.keys()).copy()
         for cluster in tqdm(init_clusters, desc="Processing clusters"):
-            if utils.get_size(assignment_dict[cluster]) > self.max_size:
+            if len(assignment_dict[cluster]) > self.max_size:
                 self.logger.info(
                     "Cluster %d exceeds max size, creating bundles", cluster
                 )
