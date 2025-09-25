@@ -1,7 +1,8 @@
-import sys
+import logging
 
 import jsonargparse
 
+from arc_tiptoe.eval.accuracy.analysis import run_analysis
 from arc_tiptoe.model.tfidf import (
     check_existing_model,
     load_tfidf_model,
@@ -16,8 +17,9 @@ from arc_tiptoe.search.tfidf import save_results_to_json, search_queries_and_eva
 
 
 def main(args):
+    log_level = args.log_level.upper()
+    logging.getLogger().setLevel(log_level)
     """Main function to run TF-IDF search using ir_datasets."""
-    print("Starting TF-IDF search with ir_datasets and scikit-learn...")
     dataset_name = args.dataset_name
     max_docs = args.max_documents  # Number of documents to use
     n_results = args.num_results  # Number of search results to return
@@ -27,7 +29,8 @@ def main(args):
     n_docs = max_docs if max_docs else "full"
     model_name = check_existing_model(n_docs)
     if model_name:
-        print(f"Found existing TF-IDF model for: MAX_DOCUMENTS = {n_docs}.")
+        msg = f"Found existing TF-IDF model for: MAX_DOCUMENTS = {n_docs}."
+        logging.info(msg)
         vectorizer, tfidf_matrix = load_tfidf_model(model_name)
         doc_ids = load_doc_ids_only(
             max_documents=n_docs,
@@ -50,9 +53,13 @@ def main(args):
         tfidf_matrix,
         n_results,
     )
-    save_results_to_json(results, filename=f"tfidf_results_{n_docs}_docs.json")
+    filename = f"tfidf_all_results_{n_docs}_docs.json"
+    save_path = save_results_to_json(results, filename=filename)
 
-    print("Search completed!", file=sys.stderr)
+    mean_results = run_analysis(save_path)
+    save_results_to_json(
+        mean_results, filename=f"tfidf_mean_results_{n_docs}_docs.json"
+    )
 
 
 if __name__ == "__main__":
@@ -82,6 +89,12 @@ if __name__ == "__main__":
         type=int,
         default=5000,
         help="Batch size for processing documents. Default is 5000.",
+    )
+    arg_parser.add_argument(
+        "--log_level",
+        type=str,
+        default="WARNING",
+        help="Logging level. Default is WARNING.",
     )
 
     args = arg_parser.parse_args()

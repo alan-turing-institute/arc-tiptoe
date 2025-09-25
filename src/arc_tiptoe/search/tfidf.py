@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import numpy as np
@@ -11,23 +12,26 @@ from arc_tiptoe.eval.accuracy.dcg import (
     normalized_discounted_cumulative_gain,
 )
 from arc_tiptoe.eval.accuracy.f1 import f1, precision, recall
+from arc_tiptoe.eval.accuracy.mrr import reciprocal_rank
 from arc_tiptoe.preprocessing.utils.tfidf import get_relevant_docs
 
 
 def save_results_to_json(results, filename):
     """Save search results to a JSON file."""
-    save_path = os.path.join(RESULTS_DIR, filename)
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    save_path = os.path.join(RESULTS_DIR, "tfidf", filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     with open(save_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print(f"Results saved to {save_path}")
+    msg = f"Results saved to {save_path}"
+    logging.info(msg)
+
+    return save_path
 
 
 def search_queries(query_list, doc_ids, vectorizer, tfidf_matrix, n_results):
     """Execute queries using TF-IDF similarity and save results."""
-    print("Processing queries...")
 
     search_results = {}
 
@@ -65,7 +69,7 @@ def evaluate_queries(query_list, search_results, print_results=False):
     for qid, _, _, qrels in query_list:
         query_results = {}
         query_search_results = search_results[qid]
-        relevant_document_ids = get_relevant_docs(qrels)
+        relevant_document_ids = get_relevant_docs(qrels, target_relevance_level=None)
         query_results["precision"] = precision(
             query_search_results["retrieved_docs"], relevant_document_ids
         )
@@ -82,8 +86,31 @@ def evaluate_queries(query_list, search_results, print_results=False):
         query_results["nDCG"] = normalized_discounted_cumulative_gain(
             query_search_results["retrieved_docs"], qrels
         )
+        target_relevance_level = 3
+        while target_relevance_level > 1:
+            top_relevant_docs = get_relevant_docs(
+                qrels, target_relevance_level=target_relevance_level
+            )
+            if len(top_relevant_docs) > 1:
+                break
+            msg = (
+                f"No top relevant docs (rel=={target_relevance_level}) for query {qid}."
+                f"Trying rel=={target_relevance_level - 1} docs."
+            )
+            logging.info(msg)
+            target_relevance_level -= 1
 
-        all_results[qid] = query_results.update(query_results)
+        if target_relevance_level == 1:
+            err_msg = f"No relevant docs (rel>0) for query {qid}."
+            logging.warning(err_msg)
+            top_relevant_docs = []
+        query_results["RR"] = reciprocal_rank(
+            query_search_results["retrieved_docs"],
+            top_relevant_docs,
+            eval_most_relevant=False,  # get_relevant_docs returns multiple targets here
+        )
+        query_results.update(query_results)
+        all_results[qid] = query_results
 
         if print_results:
             # Display results (keeping original display format)
@@ -98,6 +125,10 @@ def evaluate_queries(query_list, search_results, print_results=False):
             print(f"Cumulative Gain: {query_results['CG']:.4f}")
             print(f"Discounted Cumulative Gain: {query_results['DCG']:.4f}")
             print(f"Normalized Discounted Cumulative Gain: {query_results['nDCG']:.4f}")
+            print("-----------------------------")
+            print("")
+            print("-- Reciprocal Rank Metrics --")
+            print(f"Reciprocal Rank: {query_results['RR']:.4f}")
             print("-----------------------------")
             print("")
 

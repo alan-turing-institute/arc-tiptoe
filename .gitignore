@@ -16,6 +16,7 @@ build/
 .temp
 results/*
 models/*
+config/*
 
 # Python egg files
 *.egg

@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import time
@@ -83,8 +84,12 @@ def load_tfidf_model(model_name):
     matrix_path = os.path.join(model_dir, f"{model_name}_matrix.npz")
     tfidf_matrix = load_npz(matrix_path)
 
-    print(f"TF-IDF model loaded from {model_dir}/")
-    print(f"  Vectorizer: {vectorizer_path}")
-    print(f"  Matrix: {matrix_path}")
+    msg = f"""TF-IDF model loaded from:
+    {model_dir}/
+        Vectorizer: {vectorizer_path}
+        Matrix: {matrix_path}
+    """
+
+    logging.info(msg)
 
     return vectorizer, tfidf_matrix

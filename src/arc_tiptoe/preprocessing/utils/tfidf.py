@@ -1,3 +1,4 @@
+import logging
 from multiprocessing import Pool, cpu_count
 
 import ir_datasets
@@ -8,7 +9,9 @@ from nltk.tokenize import word_tokenize
 from tqdm import tqdm
 
 
-def get_relevant_docs(doc_dict: dict[str, int]) -> list[str]:
+def get_relevant_docs(
+    doc_dict: dict[str, int], target_relevance_level: int | None
+) -> list[str]:
     """
     Get relevant document IDs for a given query ID.
 
@@ -19,7 +22,11 @@ def get_relevant_docs(doc_dict: dict[str, int]) -> list[str]:
     Returns:
         A list of relevant document IDs.
     """
-    # return [doc_id for doc_id, rel in doc_dict.items() if rel > 0]
+    if target_relevance_level is not None:
+        # If a specific relevance level is targeted, filter for that level
+        return [
+            doc_id for doc_id, rel in doc_dict.items() if rel == target_relevance_level
+        ]
     return [doc_id for doc_id, rel in doc_dict.items() if rel > 0]
 
 
@@ -50,13 +57,14 @@ def preprocess_batch(texts):
 
 
 def load_documents_from_ir_datasets(dataset_name, max_documents, batch_size=1000):
-    print(f"Loading {dataset_name}...")
     dataset = ir_datasets.load(dataset_name)
 
     doc_ids = []
     doc_contents = []
 
-    print("Processing documents in batches...")
+    msg = f"Processing {dataset_name} documents in batches..."
+    logging.info(msg)
+
     batch_texts = []
     batch_ids = []
 
@@ -107,13 +115,15 @@ def load_documents_from_ir_datasets(dataset_name, max_documents, batch_size=1000
                 doc_contents.extend(chunk)
             doc_ids.extend(batch_ids)
 
-    print(f"Loaded {len(doc_contents)} documents")
+    msg = f"Loaded {len(doc_contents)} documents"
+    logging.info(msg)
+
     return doc_ids, doc_contents
 
 
 def load_doc_ids_only(max_documents=None, dataset_name="msmarco-document/trec-dl-2019"):
     """Load only document IDs from ir_datasets."""
-    print("Loading only document IDs...")
+    logging.info("Loading only document IDs...")
     dataset = ir_datasets.load(dataset_name)
     doc_ids = []
     n_docs = max_documents if max_documents else dataset.docs_count()
@@ -121,13 +131,12 @@ def load_doc_ids_only(max_documents=None, dataset_name="msmarco-document/trec-dl
         if max_documents and i >= max_documents:
             break
         doc_ids.append(doc.doc_id)
-    print(f"Loaded {len(doc_ids)} document IDs")
+    msg = f"Loaded {len(doc_ids)} document IDs"
+    logging.info(msg)
     return doc_ids
 
 
 def load_queries_from_ir_datasets(dataset_name="msmarco-document/trec-dl-2019"):
-    print(f"Loading queries from {dataset_name}...")
-
     dataset = ir_datasets.load(dataset_name)
     qrels_ref = dataset.qrels_dict()
     query_list = []
@@ -140,5 +149,6 @@ def load_queries_from_ir_datasets(dataset_name="msmarco-document/trec-dl-2019"):
         processed_query = preprocess_text(query_text)
         query_list.append((query_id, query_text, processed_query, qrels))
 
-    print(f"Loaded {len(query_list)} queries")
+    msg = f"Loaded {len(query_list)} queries"
+    logging.info(msg)
     return query_list
