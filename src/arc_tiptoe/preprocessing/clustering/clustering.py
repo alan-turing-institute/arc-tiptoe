@@ -297,27 +297,20 @@ class Clusterer(ABC):
             else:
                 assignment_dict[cluster_id].append(embedded_cluster_contents[idx])
 
-        # If all documents are the same, divide them arbitrarily into bundles
+        # If all documents are in the same cluster, divide them arbitrarily into bundles
         if len(assignment_dict) == 1 and num_bundles > 1:
-            self.logger.info("All documents are the same, dividing arbitrarily")
+            self.logger.info("All documents are in the same cluster, dividing arbitrarily")
             for i in tqdm(
-                range(
-                    int(
-                        np.ceil(
-                            float(len(embedded_cluster_contents))
-                            / float(self.urls_per_bundle)
-                        )
-                    )
-                ),
+                range(num_bundles),
                 desc="Dividing arbitrarily",
             ):
-                new_centroids[i] = new_centroids[next(iter(assignment_dict.keys()))]
+                new_centroids[i] = new_centroids[list(assignment_dict.keys())[0]]
                 upper_bound = min(
-                    (i + 1) * self.urls_per_bundle, len(embedded_cluster_contents)
+                    (i + 1) * self.avg_bundle_size, len(embedded_cluster_contents)
                 )
                 assignment_dict[i] = [
                     embedded_cluster_contents[j]
-                    for j in range(i * self.urls_per_bundle, upper_bound)
+                    for j in range(i * self.avg_bundle_size, upper_bound)
                 ]
 
             return new_centroids, assignment_dict
