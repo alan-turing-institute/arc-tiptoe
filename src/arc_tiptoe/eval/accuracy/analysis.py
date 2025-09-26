@@ -1,10 +1,25 @@
-import json
+import logging
+from typing import NamedTuple
+
+from arc_tiptoe.eval.accuracy.dcg import (
+    cumulative_gain,
+    discounted_cumulative_gain,
+    normalized_discounted_cumulative_gain,
+)
+from arc_tiptoe.eval.accuracy.f1 import f1, precision, recall
+from arc_tiptoe.eval.accuracy.mrr import reciprocal_rank
+from arc_tiptoe.preprocessing.utils.tfidf import get_relevant_docs
+from arc_tiptoe.utils import parse_json
 
 
-def load_results(results_pth: str) -> dict:
-    """Load retrieval results from a JSON file."""
-    with open(results_pth) as f:
-        return json.load(f)
+class EvalMetrics(NamedTuple):
+    precision: float
+    recall: float
+    f1: float
+    CG: float
+    DCG: float
+    nDCG: float
+    MRR: float
 
 
 def mean_f1_metrics(all_results: dict) -> tuple[float, float, float]:
@@ -56,13 +71,13 @@ def mean_rr_metrics(all_results: dict) -> float:
     return total_rr / num_queries if num_queries > 0 else 0.0
 
 
-def run_analysis(results_pth: str, verbose: bool = False) -> None:
+def run_analysis(results_pth: str, verbose: bool = False) -> EvalMetrics:
     """Run analysis on retrieval results and print mean metrics."""
-    all_results = load_results(results_pth)
+    all_results = parse_json(results_pth)
 
     mean_precision, mean_recall, mean_f1 = mean_f1_metrics(all_results)
     mean_cg, mean_dcg, mean_ndcg = mean_dcg_metrics(all_results)
-    mean_rr = mean_rr_metrics(all_results)
+    mrr = mean_rr_metrics(all_results)
 
     if verbose:
         print("\n=== Mean Metrics ===")
@@ -72,14 +87,86 @@ def run_analysis(results_pth: str, verbose: bool = False) -> None:
         print(f"Mean CG: {mean_cg:.4f}")
         print(f"Mean DCG: {mean_dcg:.4f}")
         print(f"Mean nDCG: {mean_ndcg:.4f}")
-        print(f"Mean Reciprocal Rank (MRR): {mean_rr:.4f}")
+        print(f"Mean Reciprocal Rank (MRR): {mrr:.4f}")
 
-    return {
-        "Mean Precision": mean_precision,
-        "Mean Recall": mean_recall,
-        "Mean F1-Score": mean_f1,
-        "Mean CG": mean_cg,
-        "Mean DCG": mean_dcg,
-        "Mean nDCG": mean_ndcg,
-        "Mean Reciprocal Rank (MRR)": mean_rr,
-    }
+    return EvalMetrics(
+        precision=mean_precision,
+        recall=mean_recall,
+        f1=mean_f1,
+        CG=mean_cg,
+        DCG=mean_dcg,
+        nDCG=mean_ndcg,
+        MRR=mrr,
+    )
+
+
+def evaluate_queries(query_list, search_results, print_results=False):
+    all_results = {}
+    for qid, _, _, qrels in query_list:
+        query_results = {}
+        query_search_results = search_results[qid]
+        relevant_document_ids = get_relevant_docs(qrels, target_relevance_level=None)
+        query_results["precision"] = precision(
+            query_search_results["retrieved_docs"], relevant_document_ids
+        )
+        query_results["recall"] = recall(
+            query_search_results["retrieved_docs"], relevant_document_ids
+        )
+        query_results["f1"] = f1(query_results["precision"], query_results["recall"])
+        query_results["CG"] = cumulative_gain(
+            query_search_results["retrieved_docs"], qrels
+        )
+        query_results["DCG"] = discounted_cumulative_gain(
+            query_search_results["retrieved_docs"], qrels
+        )
+        query_results["nDCG"] = normalized_discounted_cumulative_gain(
+            query_search_results["retrieved_docs"], qrels
+        )
+        target_relevance_level = 3
+        while target_relevance_level > 1:
+            top_relevant_docs = get_relevant_docs(
+                qrels, target_relevance_level=target_relevance_level
+            )
+            if len(top_relevant_docs) > 1:
+                break
+            msg = (
+                f"No top relevant docs (rel=={target_relevance_level}) for query {qid}."
+                f"Trying rel=={target_relevance_level - 1} docs."
+            )
+            logging.info(msg)
+            target_relevance_level -= 1
+
+        if target_relevance_level == 1:
+            err_msg = f"No relevant docs (rel>0) for query {qid}."
+            logging.warning(err_msg)
+            top_relevant_docs = []
+        query_results["RR"] = reciprocal_rank(
+            query_search_results["retrieved_docs"],
+            top_relevant_docs,
+            eval_most_relevant=False,  # get_relevant_docs returns multiple targets here
+        )
+        query_results.update(query_results)
+        all_results[qid] = query_results
+
+        if print_results:
+            # Display results (keeping original display format)
+            print(f"Query: {qid}")
+            print("----- F1 score metrics -----")
+            print(f"Precision: {query_results['precision']:.4f}")
+            print(f"Recall: {query_results['recall']:.4f}")
+            print(f"F1 Score: {query_results['f1']:.4f}")
+            print("----------------------------")
+            print("")
+            print("-- Cumulative Gain Metrics --")
+            print(f"Cumulative Gain: {query_results['CG']:.4f}")
+            print(f"Discounted Cumulative Gain: {query_results['DCG']:.4f}")
+            print(f"Normalized Discounted Cumulative Gain: {query_results['nDCG']:.4f}")
+            print("-----------------------------")
+            print("")
+            print("-- Reciprocal Rank Metrics --")
+            print(f"Reciprocal Rank: {query_results['RR']:.4f}")
+            print("-----------------------------")
+            print("")
+
+    # Save results to JSON
+    return all_results

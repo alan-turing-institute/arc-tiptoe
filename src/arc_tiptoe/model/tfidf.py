@@ -2,19 +2,27 @@ import logging
 import os
 import pickle
 import time
+from typing import NamedTuple
 
-from scipy.sparse import load_npz, save_npz
+from scipy.sparse import load_npz, save_npz, spmatrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from arc_tiptoe.constants import MODELS_DIR
 
 
-def train_tfidf_model(doc_contents):
+class TFIDFModel(NamedTuple):
+    vectorizer: TfidfVectorizer  # Set default value
+    tfidf_matrix: spmatrix
+
+
+def train_tfidf_model(dataset_name, doc_contents):
     """Train TF-IDF model using scikit-learn with time estimation."""
     doc_count = len(doc_contents)
 
     # Check if model already exists
-    existing_model = check_existing_model(doc_count)
+    existing_model = check_existing_model(
+        dataset_name=dataset_name, doc_count=doc_count
+    )
     if existing_model:
         print(f"Found existing TF-IDF model for {doc_count} documents")
         return load_tfidf_model(existing_model)
@@ -33,28 +41,33 @@ def train_tfidf_model(doc_contents):
 
     # Save the model
     save_tfidf_model(
-        vectorizer, tfidf_matrix, model_name=f"tfidf_model_{doc_count}_docs"
+        vectorizer,
+        tfidf_matrix,
+        model_name=f"tfidf_model_{doc_count}_docs",
+        dataset_name=dataset_name,
     )
 
-    return vectorizer, tfidf_matrix
+    return TFIDFModel(vectorizer=vectorizer, tfidf_matrix=tfidf_matrix)
 
 
-def check_existing_model(doc_count):
+def check_existing_model(dataset_name, doc_count):
     """Check if a model exists for the given document count."""
-    model_dir = f"{MODELS_DIR}/tfidf_models"
+    data_save_name = dataset_name.replace("/", "_")
+    model_dir = f"{MODELS_DIR}/{data_save_name}/tfidf"
     model_name = f"tfidf_model_{doc_count}_docs"
 
     vectorizer_path = os.path.join(model_dir, f"{model_name}_vectorizer.pkl")
     matrix_path = os.path.join(model_dir, f"{model_name}_matrix.npz")
 
     if os.path.exists(vectorizer_path) and os.path.exists(matrix_path):
-        return model_name
+        return os.path.join(model_dir, model_name)
     return None
 
 
-def save_tfidf_model(vectorizer, tfidf_matrix, model_name):
+def save_tfidf_model(vectorizer, tfidf_matrix, model_name, dataset_name):
     """Save the trained TF-IDF model to disk."""
-    model_dir = f"{MODELS_DIR}/tfidf_models"
+    data_save_name = dataset_name.replace("/", "_")
+    model_dir = f"{MODELS_DIR}/{data_save_name}/tfidf"
     os.makedirs(model_dir, exist_ok=True)
 
     # Save vectorizer using pickle
@@ -71,25 +84,24 @@ def save_tfidf_model(vectorizer, tfidf_matrix, model_name):
     print(f"  Matrix: {matrix_path}")
 
 
-def load_tfidf_model(model_name):
+def load_tfidf_model(model_path_stem):
     """Load a saved TF-IDF model from disk."""
-    model_dir = f"{MODELS_DIR}/tfidf_models"
 
     # Load vectorizer
-    vectorizer_path = os.path.join(model_dir, f"{model_name}_vectorizer.pkl")
+    vectorizer_path = f"{model_path_stem}_vectorizer.pkl"
     with open(vectorizer_path, "rb") as f:
         vectorizer = pickle.load(f)
 
     # Load TF-IDF matrix
-    matrix_path = os.path.join(model_dir, f"{model_name}_matrix.npz")
+    matrix_path = f"{model_path_stem}_matrix.npz"
     tfidf_matrix = load_npz(matrix_path)
 
     msg = f"""TF-IDF model loaded from:
-    {model_dir}/
+    {os.path.dirname(model_path_stem)}
         Vectorizer: {vectorizer_path}
         Matrix: {matrix_path}
     """
 
     logging.info(msg)
 
-    return vectorizer, tfidf_matrix
+    return TFIDFModel(vectorizer=vectorizer, tfidf_matrix=tfidf_matrix)

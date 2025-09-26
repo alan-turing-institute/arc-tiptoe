@@ -1,9 +1,11 @@
 import logging
+import os
 
 import ir_datasets
 import jsonargparse
 
-from arc_tiptoe.eval.accuracy.analysis import run_analysis
+from arc_tiptoe.constants import RESULTS_DIR
+from arc_tiptoe.eval.accuracy.analysis import evaluate_queries, run_analysis
 from arc_tiptoe.model.tfidf import (
     check_existing_model,
     load_tfidf_model,
@@ -14,55 +16,71 @@ from arc_tiptoe.preprocessing.utils.tfidf import (
     load_documents_from_ir_datasets,
     load_queries_from_ir_datasets,
 )
-from arc_tiptoe.search.tfidf import save_results_to_json, search_queries_and_evaluate
+from arc_tiptoe.search.tfidf import SearchConfig, save_to_json, search_queries
 
 
 def main(args):
     log_level = args.log_level.upper()
     logging.getLogger().setLevel(log_level)
     """Main function to run TF-IDF search using ir_datasets."""
-    dataset_name = args.dataset_name
     max_docs = args.max_documents  # Number of documents to use
     n_results = args.num_results  # Number of search results to return
     batch_size = args.batch_size  # Process documents in batches
 
-    dataset = ir_datasets.load(dataset_name)
+    dataset = ir_datasets.load(args.dataset_name)
+    dataset_name = args.dataset_name.replace("/", "_")
 
     # Check for existing model before loading documents
     n_docs = max_docs if max_docs else dataset.docs_count()
-    model_name = check_existing_model(n_docs)
+    model_path_stem = check_existing_model(dataset_name=dataset_name, doc_count=n_docs)
 
-    if model_name:
-        msg = f"Found existing TF-IDF model for: MAX_DOCUMENTS = {n_docs}."
+    if model_path_stem:
+        msg = f"""Found existing TF-IDF model for:
+        DATASET = {dataset_name},
+        MAX_DOCUMENTS = {n_docs}.
+        """
         logging.info(msg)
-        vectorizer, tfidf_matrix = load_tfidf_model(model_name)
+        model = load_tfidf_model(model_path_stem)
         doc_ids = load_doc_ids_only(
             dataset=dataset,
             max_documents=n_docs,
         )
     else:
+        msg = f"""Did not find existing TF-IDF model for:
+        DATASET = {dataset_name},
+        MAX_DOCUMENTS = {n_docs}.
+        """
+        logging.info(msg)
         doc_ids, doc_contents = load_documents_from_ir_datasets(
             dataset=dataset,
             max_documents=n_docs,
             batch_size=batch_size,
         )
-        vectorizer, tfidf_matrix = train_tfidf_model(doc_contents)
+        model = train_tfidf_model(dataset_name=dataset_name, doc_contents=doc_contents)
 
-    # Run queries and display results
+    # Run queries
     query_list = load_queries_from_ir_datasets(dataset=dataset)
-    results = search_queries_and_evaluate(
-        query_list,
-        doc_ids,
-        vectorizer,
-        tfidf_matrix,
-        n_results,
-    )
-    filename = f"tfidf_all_results_{n_docs}_docs.json"
-    save_path = save_results_to_json(results, filename=filename)
 
-    mean_results = run_analysis(save_path)
-    save_results_to_json(
-        mean_results, filename=f"tfidf_mean_results_{n_docs}_docs.json"
+    outputs_dir = os.path.join(RESULTS_DIR, dataset_name, "tfidf")
+
+    search_config = SearchConfig(
+        max_documents=n_docs, results_per_query=n_results, save_path=outputs_dir
+    )
+    preliminary_results = search_queries(query_list, doc_ids, model, search_config)
+
+    # Perform evaluation
+    results = evaluate_queries(query_list, preliminary_results)
+
+    all_results_path = save_to_json(
+        results,
+        save_path=os.path.join(outputs_dir, "all_results", f"{n_docs}_docs.json"),
+    )
+
+    mean_results = run_analysis(all_results_path)
+    save_to_json(
+        mean_results._asdict(),
+        save_path=os.path.join(outputs_dir, "mean_results", f"{n_docs}_docs.json"),
+        indent=2,
     )
 
 
