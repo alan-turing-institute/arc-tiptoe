@@ -35,11 +35,19 @@ def modernbert_preprocess(text: str) -> str:
     For the modernbert embed model this the text needs to be prepended with,
     'search_document: '
     """
-    return "search_document: " + text
+    return f"search_document: {text}"
+
+
+def embedding_gemma_preprocess(text: str) -> str:
+    """
+    For the gemma embedding model the text needs to be prepended with,
+    'task: clustering | query: '
+    """
+    return f"task: clustering | query: {text}"
 
 
 PREPROCESSING_METHODS = {
     "msmarco-distilbert-base-tas-b": distilbert_preprocess,
     "nomic-ai/modernbert-embed-base": modernbert_preprocess,
-    "google/embeddinggemma-300m": distilbert_preprocess,
+    "google/embeddinggemma-300m": embedding_gemma_preprocess,
 }

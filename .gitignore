@@ -177,3 +177,7 @@ new_go/
 *.egg-info/
 *.ipynb
 search_results.csv
+results/
+models/
+config/
+.temp/
