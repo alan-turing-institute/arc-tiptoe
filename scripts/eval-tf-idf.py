@@ -1,5 +1,6 @@
 import logging
 
+import ir_datasets
 import jsonargparse
 
 from arc_tiptoe.eval.accuracy.analysis import run_analysis
@@ -25,27 +26,30 @@ def main(args):
     n_results = args.num_results  # Number of search results to return
     batch_size = args.batch_size  # Process documents in batches
 
+    dataset = ir_datasets.load(dataset_name)
+
     # Check for existing model before loading documents
-    n_docs = max_docs if max_docs else "full"
+    n_docs = max_docs if max_docs else dataset.docs_count()
     model_name = check_existing_model(n_docs)
+
     if model_name:
         msg = f"Found existing TF-IDF model for: MAX_DOCUMENTS = {n_docs}."
         logging.info(msg)
         vectorizer, tfidf_matrix = load_tfidf_model(model_name)
         doc_ids = load_doc_ids_only(
+            dataset=dataset,
             max_documents=n_docs,
-            dataset_name=dataset_name,
         )
     else:
         doc_ids, doc_contents = load_documents_from_ir_datasets(
-            dataset_name=dataset_name,
+            dataset=dataset,
             max_documents=n_docs,
             batch_size=batch_size,
         )
         vectorizer, tfidf_matrix = train_tfidf_model(doc_contents)
 
     # Run queries and display results
-    query_list = load_queries_from_ir_datasets()
+    query_list = load_queries_from_ir_datasets(dataset=dataset)
     results = search_queries_and_evaluate(
         query_list,
         doc_ids,
@@ -74,7 +78,7 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "--max_documents",
         type=int,
-        default="full",
+        default=None,
         help="Maximum number of documents to process (for testing). "
         "Default is None (all documents).",
     )

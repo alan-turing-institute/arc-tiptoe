@@ -56,25 +56,20 @@ def preprocess_batch(texts):
     return [preprocess_text(text) for text in texts]
 
 
-def load_documents_from_ir_datasets(dataset_name, max_documents, batch_size=1000):
-    dataset = ir_datasets.load(dataset_name)
-
+def load_documents_from_ir_datasets(dataset, max_documents, batch_size=1000):
     doc_ids = []
     doc_contents = []
-
-    msg = f"Processing {dataset_name} documents in batches..."
-    logging.info(msg)
 
     batch_texts = []
     batch_ids = []
 
-    n_docs = dataset.docs_count() if max_documents == "full" else max_documents
-
     with Pool(processes=cpu_count()) as pool:
         for i, doc in tqdm(
-            enumerate(dataset.docs_iter()), desc="Loading", total=n_docs
+            enumerate(dataset.docs_iter()),
+            desc="Doc No.",
+            total=max_documents,
         ):
-            if max_documents != "full" and i >= max_documents:
+            if i >= max_documents:
                 break
 
             batch_ids.append(doc.doc_id)
@@ -121,13 +116,12 @@ def load_documents_from_ir_datasets(dataset_name, max_documents, batch_size=1000
     return doc_ids, doc_contents
 
 
-def load_doc_ids_only(max_documents=None, dataset_name="msmarco-document/trec-dl-2019"):
+def load_doc_ids_only(dataset, max_documents=None):
     """Load only document IDs from ir_datasets."""
     logging.info("Loading only document IDs...")
-    dataset = ir_datasets.load(dataset_name)
     doc_ids = []
     n_docs = max_documents if max_documents else dataset.docs_count()
-    for i, doc in tqdm(enumerate(dataset.docs_iter()), desc="Doc IDs", total=n_docs):
+    for i, doc in tqdm(enumerate(dataset.docs_iter()), desc="Doc No.", total=n_docs):
         if max_documents and i >= max_documents:
             break
         doc_ids.append(doc.doc_id)
@@ -136,8 +130,7 @@ def load_doc_ids_only(max_documents=None, dataset_name="msmarco-document/trec-dl
     return doc_ids
 
 
-def load_queries_from_ir_datasets(dataset_name="msmarco-document/trec-dl-2019"):
-    dataset = ir_datasets.load(dataset_name)
+def load_queries_from_ir_datasets(dataset):
     qrels_ref = dataset.qrels_dict()
     query_list = []
     for query in dataset.queries_iter():

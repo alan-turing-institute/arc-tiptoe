@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
 
 from arc_tiptoe.constants import RESULTS_DIR
 from arc_tiptoe.eval.accuracy.dcg import (
@@ -35,7 +36,7 @@ def search_queries(query_list, doc_ids, vectorizer, tfidf_matrix, n_results):
 
     search_results = {}
 
-    for qid, original_query, processed_query, _ in query_list:
+    for qid, original_query, processed_query, _ in tqdm(query_list, desc="Query No."):
         # Transform query to TF-IDF vector
         query_vector = vectorizer.transform([processed_query])
 
