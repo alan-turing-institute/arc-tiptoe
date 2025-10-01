@@ -4,9 +4,7 @@ This repository extends the [reference implementation of Tiptoe](https://github.
 
 The implementation of Tiptoe's cryptosystem is available at [github.com/ahenzinger/underhood](https://github.com/ahenzinger/underhood).
 
-<!-- The version of Tiptoe that was artifact evaluated is tagged as [v0](https://github.com/ahenzinger/tiptoe/tree/076b9ae2f226427302c5fc6ecd3e361b3eaedaa5). -->
-
-<img src="tiptoe-arch.png" width="500">
+From the original repo:
 
 > Tiptoe is a private web search engine that allows clients to search over hundreds of millions of documents, while revealing no information about their search query to the search engine’s servers. Tiptoe’s privacy guarantee is based on cryptography alone; it does not require hardware enclaves or non-colluding servers. Tiptoe uses semantic embeddings to reduce the problem of private full-text search to private nearest-neighbor search. Then, Tiptoe implements private nearest-neighbor search with a new, high-throughput protocol based on linearly homomorphic encryption. Running on a 45-server cluster, Tiptoe can privately search over 360 million web pages with 145 core-seconds of server compute, 56.9 MiB of client-server communication (74% of which can occur before the client enters its search query), and 2.7 seconds of end-to-end latency. Tiptoe’s search works best on conceptual queries (“knee pain”) and less well on exact string matches (“123 Main Street, New York”). On the standard MS MARCO search-quality benchmark, Tiptoe ranks the best-matching result in position 7.7 on average. This is worse than a state-of-the-art, non-private neural search algorithm (average rank: 2.3), but is close to the classical tf-idf search algorithm (average rank: 6.7). Finally, Tiptoe is extensible: it also supports private text-to-image search and, with minor modifications, it can support private search over audio, code, and more.
 
