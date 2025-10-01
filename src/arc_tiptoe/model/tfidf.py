@@ -9,6 +9,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from arc_tiptoe.constants import MODELS_DIR
 
+EQUIV_DATASETS = {
+    "msmarco-document_trec-dl-2019": "msmarco-document_dev",
+    "msmarco-document_dev": "msmarco-document_trec-dl-2019",
+}
+
 
 class TFIDFModel(NamedTuple):
     vectorizer: TfidfVectorizer  # Set default value
@@ -50,7 +55,26 @@ def train_tfidf_model(dataset_name, doc_contents):
     return TFIDFModel(vectorizer=vectorizer, tfidf_matrix=tfidf_matrix)
 
 
-def check_existing_model(dataset_name, doc_count):
+def check_existing_model(dataset_name, doc_count, accept_equiv=True):
+    """Wrapper to check for existing model, considering equivalent datasets."""
+    existing_model = _check_existing_model(dataset_name, doc_count)
+    if existing_model:
+        return existing_model
+
+    # Check equivalent dataset if applicable
+    equiv_dataset = EQUIV_DATASETS.get(dataset_name)
+    if equiv_dataset and accept_equiv:
+        log_msg = (
+            f"No model found for {dataset_name}, with {doc_count} documents. "
+            f"Found dataset with same documents, checking for model in {equiv_dataset}"
+        )
+        logging.info(log_msg)
+        return _check_existing_model(equiv_dataset, doc_count)
+
+    return None
+
+
+def _check_existing_model(dataset_name, doc_count):
     """Check if a model exists for the given document count."""
     data_save_name = dataset_name.replace("/", "_")
     model_dir = f"{MODELS_DIR}/{data_save_name}/tfidf"

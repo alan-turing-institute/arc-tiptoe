@@ -76,3 +76,74 @@ def search_queries(query_list, doc_ids, model: TFIDFModel, search_config: Search
     )
     save_to_json(results=search_results, save_path=save_path)
     return search_results
+
+
+def search_queries_batch(
+    query_list,
+    doc_ids,
+    model: TFIDFModel,
+    search_config: SearchConfig,
+    batch_size: int = 32,
+):
+    """
+    Execute queries using TF-IDF similarity in batches for improved performance.
+
+    Args:
+        query_list: List of tuples containing (qid, original_query, processed_query, _)
+        doc_ids: List of document IDs corresponding to the TF-IDF matrix
+        model: TFIDFModel containing the vectorizer and TF-IDF matrix
+        search_config: SearchConfig containing search parameters
+        batch_size: Number of queries to process in each batch (default: 32)
+
+    Returns:
+        Dictionary containing search results for all queries
+    """
+    search_results = {}
+
+    # Process queries in batches
+    for i in tqdm(range(0, len(query_list), batch_size), desc="Batch No."):
+        batch = query_list[i : i + batch_size]
+        batch_qids = [item[0] for item in batch]
+        batch_original_queries = [item[1] for item in batch]
+        batch_processed_queries = [item[2] for item in batch]
+
+        # Transform all queries in batch to TF-IDF vectors
+        batch_query_vectors = model.vectorizer.transform(batch_processed_queries)
+
+        # Calculate cosine similarity for all queries in batch at once
+        batch_similarities = cosine_similarity(batch_query_vectors, model.tfidf_matrix)
+
+        # Process results for each query in the batch
+        for j, (qid, original_query, processed_query) in enumerate(
+            zip(
+                batch_qids,
+                batch_original_queries,
+                batch_processed_queries,
+                strict=True,
+            )
+        ):
+            similarities = batch_similarities[j]
+
+            # Get top results
+            top_indices = np.argsort(similarities)[::-1][
+                : search_config.results_per_query
+            ]
+
+            # Store results for this query
+            query_outputs = QueryResult(original_query, processed_query, [], [])
+
+            for doc_idx in top_indices:
+                if similarities[doc_idx] > 0:  # Only positive similarity
+                    query_outputs.retrieved_docs.append(doc_ids[doc_idx])
+                    query_outputs.scores.append(float(similarities[doc_idx]))
+            search_results[qid] = query_outputs._asdict()
+
+    # Save results to JSON
+    save_path = os.path.join(
+        RESULTS_DIR,
+        search_config.save_path,
+        "search_results",
+        f"{search_config.max_documents}_docs_batch.json",
+    )
+    save_to_json(results=search_results, save_path=save_path)
+    return search_results

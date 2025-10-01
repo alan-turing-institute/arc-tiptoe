@@ -16,7 +16,7 @@ from arc_tiptoe.preprocessing.utils.tfidf import (
     load_documents_from_ir_datasets,
     load_queries_from_ir_datasets,
 )
-from arc_tiptoe.search.tfidf import SearchConfig, save_to_json, search_queries
+from arc_tiptoe.search.tfidf import SearchConfig, save_to_json, search_queries_batch
 
 
 def main(args):
@@ -66,7 +66,9 @@ def main(args):
     search_config = SearchConfig(
         max_documents=n_docs, results_per_query=n_results, save_path=outputs_dir
     )
-    preliminary_results = search_queries(query_list, doc_ids, model, search_config)
+    preliminary_results = search_queries_batch(
+        query_list, doc_ids, model, search_config
+    )
 
     # Perform evaluation
     results = evaluate_queries(query_list, preliminary_results)
