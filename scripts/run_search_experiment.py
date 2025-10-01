@@ -77,6 +77,3 @@ if __name__ == "__main__":
         main_sync(
             config_path=args.json_search_config_path, dataset_name=args.dataset_name
         )
-        main_sync(
-            config_path=args.json_search_config_path, dataset_name=args.dataset_name
-        )
