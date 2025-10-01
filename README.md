@@ -1,16 +1,16 @@
 # Private Web Search with Tiptoe
 
-This repository contains the reference implementation of Tiptoe, accompanying the paper ["Private Web Search with Tiptoe"](https://doi.org/10.1145/3600006.3613134) by Alexandra Henzinger, Emma Dauterman, Henry Corrigan-Gibbs, and Nickolai Zeldovich (SOSP 2023).
+This repository extends the [reference implementation of Tiptoe](https://github.com/ahenzinger/tiptoe). The accompanying paper of the original implementation is ["Private Web Search with Tiptoe"](https://doi.org/10.1145/3600006.3613134) by Alexandra Henzinger, Emma Dauterman, Henry Corrigan-Gibbs, and Nickolai Zeldovich (SOSP 2023).
 
 The implementation of Tiptoe's cryptosystem is available at [github.com/ahenzinger/underhood](https://github.com/ahenzinger/underhood).
 
-The version of Tiptoe that was artifact evaluated is tagged as [v0](https://github.com/ahenzinger/tiptoe/tree/076b9ae2f226427302c5fc6ecd3e361b3eaedaa5).
+<!-- The version of Tiptoe that was artifact evaluated is tagged as [v0](https://github.com/ahenzinger/tiptoe/tree/076b9ae2f226427302c5fc6ecd3e361b3eaedaa5). -->
 
 <img src="tiptoe-arch.png" width="500">
 
 > Tiptoe is a private web search engine that allows clients to search over hundreds of millions of documents, while revealing no information about their search query to the search engine’s servers. Tiptoe’s privacy guarantee is based on cryptography alone; it does not require hardware enclaves or non-colluding servers. Tiptoe uses semantic embeddings to reduce the problem of private full-text search to private nearest-neighbor search. Then, Tiptoe implements private nearest-neighbor search with a new, high-throughput protocol based on linearly homomorphic encryption. Running on a 45-server cluster, Tiptoe can privately search over 360 million web pages with 145 core-seconds of server compute, 56.9 MiB of client-server communication (74% of which can occur before the client enters its search query), and 2.7 seconds of end-to-end latency. Tiptoe’s search works best on conceptual queries (“knee pain”) and less well on exact string matches (“123 Main Street, New York”). On the standard MS MARCO search-quality benchmark, Tiptoe ranks the best-matching result in position 7.7 on average. This is worse than a state-of-the-art, non-private neural search algorithm (average rank: 2.3), but is close to the classical tf-idf search algorithm (average rank: 6.7). Finally, Tiptoe is extensible: it also supports private text-to-image search and, with minor modifications, it can support private search over audio, code, and more.
 
-To minimize the time and cost to reproduce the paper's results, we additionally provide scripts, data sets, and preprocessed data structures to reproduce the Tiptoe text search results over the Common Crawl data set. 
+<!-- To minimize the time and cost to reproduce the paper's results, we additionally provide scripts, data sets, and preprocessed data structures to reproduce the Tiptoe text search results over the Common Crawl data set.  -->
 
 **Warning:** This code is a research prototype.
 
@@ -19,7 +19,7 @@ To minimize the time and cost to reproduce the paper's results, we additionally 
 * [Setup](#setup)
    * [Dependencies](#dependencies)
    * [Getting started](#start)
-* [Usage](#usage)
+<!-- * [Usage](#usage)
    * [Unit tests](#unit)
    * [End-to-end tests](#e2e)
    * [Running the Tiptoe servers and client](#run)
@@ -38,23 +38,21 @@ To minimize the time and cost to reproduce the paper's results, we additionally 
    * [Step 3: Cluster assignment](#step3)
    * [Steps 4-6: Cluster preprocessing](#step4)
    * [Step 7: Cryptographic preprocessing](#step7)
-* [Acknowledgements](#ack)   
+* [Acknowledgements](#ack)    -->
 * [Citation](#cite)
   
 ## Overview<a name="overview"></a>
 
 This repository is organized as follows:
 - The `search/` directory implements the Tiptoe private search protocol. It includes code for the Tiptoe client and the client-facing Tiptoe services (including all cryptographic operations).
-- The `embeddings/`, `dim-reduce/`, and `cluster/` directories contain the code for Tiptoe's corpus indexing batch jobs.
-- The `perf-eval/` directory contains scripts to launch Tiptoe servers on a cluster of AWS instances and run performance experiments. The `quality-eval/` directory contains scripts to evalute Tiptoe's search quality. The `tf-idf/` directory contains code to compare search quality against the tf-idf baseline.
-- The `plots/` directory contains scripts to generate the tables and plots from the paper.
+- To do...
 
 ## Setup<a name="setup"></a>
 
 ### Dependencies<a name="dependencies"></a>
 
 To build from source, install the following dependencies:
-- [Go](https://go.dev/Go) (tested with version 1.20.2, requires at least 1.19)
+- [Go](https://go.dev) - this code requires at least version 1.24 and [installation instructions are found here](https://go.dev/doc/install).
 - [Python3](https://www.python.org/) and [pip3](https://pypi.org/project/pip/)
 - a C compiler (tested with GCC 11.3.0)
 - [Microsoft SEAL](https://github.com/microsoft/SEAL) (tested with version 4.1.1). You must compile SEAL with `-DSEAL_THROW_ON_TRANSPARENT_CIPHERTEXT=off`. We recommend also compiling with [Intel HEXL](https://github.com/intel/hexl) (`-DSEAL_USE_INTEL_HEXL=ON`) to use hardware acceleration.
@@ -65,11 +63,10 @@ To build from source, install the following dependencies:
 After building from source, run:
 
 ```bash
-git clone git@github.com:ahenzinger/tiptoe.git
-cd tiptoe
-pip3 install -r requirements.txt
+git clone git@github.com:alan-turing-institute/arc-tiptoe.git
+cd arc-tiptoe
 ```
-
+<!-- 
 Finally, run `mkdir ~/.aws` and enter your AWS [credentials](https://docs.aws.amazon.com/sdkref/latest/guide/file-location.html) in `~/.aws/credentials`. (This step is needed to use our scripts to launch AWS instances and to download data from S3.) 
 The credentials file should be of the form
 ```
@@ -380,7 +377,7 @@ The cryptographic preprocessing runs as part of the setup routine for the Tiptoe
 ## Acknowledgements<a name="ack"></a>
 
 Our AWS scripting is based on scripts from Natacha Crooks. Our networking code is based on code from Henry Corrigan-Gibbs.
-We use the SimplePIR implementation at [github.com/henrycg/simplepir](https://github.com/henrycg/simplepir).
+We use the SimplePIR implementation at [github.com/henrycg/simplepir](https://github.com/henrycg/simplepir). -->
 
 ## Citation<a name="cite"></a>
 
