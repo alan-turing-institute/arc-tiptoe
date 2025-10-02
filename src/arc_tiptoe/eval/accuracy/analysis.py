@@ -43,7 +43,7 @@ def mean_f1_metrics(all_results: dict[str, dict]) -> tuple[float, float, float]:
     return mean_precision, mean_recall, mean_f1
 
 
-def mean_dcg_metrics(all_results: dict[str, dict]) -> float:
+def mean_dcg_metrics(all_results: dict[str, dict]) -> tuple[float, float, float]:
     """Calculate mean Discounted Cumulative Gain (DCG) from all query results."""
     total_dcg = 0.0
     total_cg = 0.0
@@ -73,16 +73,17 @@ def mean_rr_metrics(all_results: dict[str, dict]) -> float:
     return total_rr / num_queries if num_queries > 0 else 0.0
 
 
-def run_analysis(results_pth: str, verbose: bool = False) -> EvalMetrics:
+def run_analysis(results: str | dict, verbose: bool = False) -> EvalMetrics:
     """Run analysis on retrieval results and print mean metrics.
     Args:
-        results_pth (str): Path to the JSON file containing all query results.
+        results (str | dict): Path to the JSON file containing all query results or
+        the results dictionary.
         verbose (bool): Whether to print detailed metrics. Defaults to False.
     Returns:
         EvalMetrics: NamedTuple containing mean precision, recall, F1, CG, DCG, nDCG,
         and MRR.
     """
-    all_results = parse_json(results_pth)
+    all_results = results if isinstance(results, dict) else parse_json(results)
 
     mean_precision, mean_recall, mean_f1 = mean_f1_metrics(all_results)
     mean_cg, mean_dcg, mean_ndcg = mean_dcg_metrics(all_results)
@@ -116,21 +117,30 @@ def _evaluate(
     qrels: dict,
     relevant_document_ids: list,
     target_relevance_level: int = 3,
+    top_k_docs: int = 100,
 ) -> dict:
-    query_results["precision"] = precision(
-        query_search_results["retrieved_docs"], relevant_document_ids
-    )
-    query_results["recall"] = recall(
-        query_search_results["retrieved_docs"], relevant_document_ids
-    )
+    """
+    Evaluate retrieval results for a single query.
+
+    Args:
+        query_results: Dictionary to store evaluation metrics for the query.
+        qid: Query ID.
+        query_search_results: Search results for the query.
+        qrels: Ground truth relevance judgments.
+        relevant_document_ids: List of relevant document IDs.
+        target_relevance_level: Target relevance level for evaluation. Defaults to 3.
+        k: Number of top results to consider for evaluation. Defaults to 100.
+
+    Returns:
+        Dictionary containing evaluation metrics for the query.
+    """
+    retrieved_docs = query_search_results["retrieved_docs"][:top_k_docs]
+    query_results["precision"] = precision(retrieved_docs, relevant_document_ids)
+    query_results["recall"] = recall(retrieved_docs, relevant_document_ids)
     query_results["f1"] = f1(query_results["precision"], query_results["recall"])
-    query_results["CG"] = cumulative_gain(query_search_results["retrieved_docs"], qrels)
-    query_results["DCG"] = discounted_cumulative_gain(
-        query_search_results["retrieved_docs"], qrels
-    )
-    query_results["nDCG"] = normalized_discounted_cumulative_gain(
-        query_search_results["retrieved_docs"], qrels
-    )
+    query_results["CG"] = cumulative_gain(retrieved_docs, qrels)
+    query_results["DCG"] = discounted_cumulative_gain(retrieved_docs, qrels)
+    query_results["nDCG"] = normalized_discounted_cumulative_gain(retrieved_docs, qrels)
     while target_relevance_level > 0:
         top_relevant_docs = get_relevant_docs(
             qrels, target_relevance_level=target_relevance_level
@@ -149,7 +159,7 @@ def _evaluate(
         logging.warning(err_msg)
         top_relevant_docs = []
     query_results["RR"] = reciprocal_rank(
-        query_search_results["retrieved_docs"],
+        retrieved_docs,
         top_relevant_docs,
         eval_most_relevant=False,  # get_relevant_docs returns multiple targets here
     )
@@ -157,7 +167,11 @@ def _evaluate(
 
 
 def evaluate_queries(
-    query_list, search_results, print_results=False, target_relevance_level=None
+    query_list,
+    search_results,
+    top_k_docs,
+    print_results=False,
+    target_relevance_level=None,
 ):
     """
     Evaluate retrieval results for a list of queries.
@@ -165,6 +179,7 @@ def evaluate_queries(
     Args:
         query_list: List of queries with their IDs and relevance judgments.
         search_results: Dictionary of search results keyed by query ID.
+        k: Number of top results to consider for evaluation.
         print_results: Whether to print results. Defaults to False.
         target_relevance_level: The relevance level to evaluate. Defaults to None.
 
@@ -173,7 +188,7 @@ def evaluate_queries(
     """
     all_results = {}
     for qid, _, _, qrels in tqdm(query_list, desc="Query No."):
-        query_results = {}
+        query_results: dict[str, float] = {}
         query_search_results = search_results[qid]
         relevant_document_ids = get_relevant_docs(
             qrels, target_relevance_level=target_relevance_level
@@ -187,6 +202,7 @@ def evaluate_queries(
                 qrels=qrels,
                 relevant_document_ids=relevant_document_ids,
                 target_relevance_level=target_relevance_level,
+                top_k_docs=top_k_docs,
             )
         )
 

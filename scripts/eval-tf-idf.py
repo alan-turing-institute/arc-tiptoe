@@ -102,17 +102,15 @@ def main(args):
         query_list,
         preliminary_results,
         target_relevance_level=get_top_relevance_level(dataset),
+        top_k_docs=n_results,
     )
 
-    all_results_path = save_to_json(
-        results,
-        save_path=os.path.join(outputs_dir, "all_results", f"{n_docs}_docs.json"),
-    )
-
-    mean_results = run_analysis(all_results_path)
+    mean_results = run_analysis(results)
     save_to_json(
         mean_results._asdict(),
-        save_path=os.path.join(outputs_dir, "mean_results", f"{n_docs}_docs.json"),
+        save_path=os.path.join(
+            outputs_dir, "mean_metrics", f"{n_docs}_docs", f"{n_results}_results.json"
+        ),
         indent=2,
     )
 
