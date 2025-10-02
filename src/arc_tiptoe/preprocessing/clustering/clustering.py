@@ -47,7 +47,6 @@ class Clusterer(ABC):
             self.logger.info("Clustering already complete")
         else:
             self.logger.info("Clustering not yet complete, starting clustering")
-            self.config.clustering_path = f"data/{self.config.uuid}/clusters"
             self.processing_path = os.path.join(
                 self.config.clustering_path, "processing"
             )
@@ -298,27 +297,20 @@ class Clusterer(ABC):
             else:
                 assignment_dict[cluster_id].append(embedded_cluster_contents[idx])
 
-        # If all documents are the same, divide them arbitrarily into bundles
+        # If all documents are in the same cluster, divide them arbitrarily into bundles
         if len(assignment_dict) == 1 and num_bundles > 1:
-            self.logger.info("All documents are the same, dividing arbitrarily")
+            self.logger.info("All documents are in the same cluster, dividing arbitrarily")
             for i in tqdm(
-                range(
-                    int(
-                        np.ceil(
-                            float(len(embedded_cluster_contents))
-                            / float(self.urls_per_bundle)
-                        )
-                    )
-                ),
+                range(num_bundles),
                 desc="Dividing arbitrarily",
             ):
-                new_centroids[i] = new_centroids[next(iter(assignment_dict.keys()))]
+                new_centroids[i] = new_centroids[list(assignment_dict.keys())[0]]
                 upper_bound = min(
-                    (i + 1) * self.urls_per_bundle, len(embedded_cluster_contents)
+                    (i + 1) * self.avg_bundle_size, len(embedded_cluster_contents)
                 )
                 assignment_dict[i] = [
                     embedded_cluster_contents[j]
-                    for j in range(i * self.urls_per_bundle, upper_bound)
+                    for j in range(i * self.avg_bundle_size, upper_bound)
                 ]
 
             return new_centroids, assignment_dict
@@ -329,7 +321,7 @@ class Clusterer(ABC):
         )
         init_clusters = list(assignment_dict.keys()).copy()
         for cluster in tqdm(init_clusters, desc="Processing clusters"):
-            if utils.get_size(assignment_dict[cluster]) > self.max_size:
+            if len(assignment_dict[cluster]) > self.max_size:
                 self.logger.info(
                     "Cluster %d exceeds max size, creating bundles", cluster
                 )

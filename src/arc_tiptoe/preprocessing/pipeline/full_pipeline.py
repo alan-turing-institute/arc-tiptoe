@@ -87,7 +87,7 @@ class PreprocessingPipeline:
             and self.config.dim_red["apply_dim_red"]
         ):
             # Move the reduced clustered assignments and centroids to the
-            # clustering dire"ctory
+            # clustering directory
             src_path = Path(
                 f"{self.config.dim_red_path}/"
                 f"{self.config.dim_red['dim_red_method']}_"
@@ -124,16 +124,16 @@ class PreprocessingPipeline:
             and not self.config.dim_red["apply_dim_red"]
         ):
             # Move the original clustered assignments and centroids to the
-            # clustering dire"ctory
+            # clustering directory
             src_path = Path(
-                f"{self.config.cluster_path}/clusters/processing/processed_clusters"
+                f"{self.config.clustering_path}/clusters/processing/processed_clusters"
             )
             for each_file in src_path.glob("*.*"):
                 trg_path = Path(f"{self.config.clustering_path}/clusters")
                 each_file.rename(trg_path.joinpath(each_file.name))
 
             src_path = Path(
-                f"{self.config.cluster_path}/processing/centroids/final_centroids.txt"
+                f"{self.config.clustering_path}/processing/centroids/final_centroids.npy"
             )
             trg_path = Path(f"{self.config.clustering_path}/centroids.txt")
             src_path.rename(trg_path)
