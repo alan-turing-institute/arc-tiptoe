@@ -16,8 +16,6 @@ class PreprocessingPipeline:
     """
     Class to manage the full preprocessing pipeline, including embedding,
     dimensionality reduction, and clustering.
-
-    NB: Dimensionality reduction is run within clustering.
     """
 
     def __init__(self, config: PreProcessConfig):
@@ -188,7 +186,7 @@ class PreprocessingPipeline:
         # save search config
         search_config_path = Path(self.config.orig_config_path).with_suffix("")
         search_config_path = f"{search_config_path}_search_config.json"
-        with open(search_config_path, "w") as f:
+        with open(search_config_path, "w", encoding="utf-8") as f:
             json.dump(search_config, f, indent=4)
 
     def _calculate_server_config(self):

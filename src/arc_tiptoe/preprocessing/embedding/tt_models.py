@@ -6,6 +6,7 @@ import os
 
 from sentence_transformers import SentenceTransformer
 from torch import device as torch_device
+from transformers import AutoTokenizer
 
 
 def load_sentence_transformer(
@@ -27,7 +28,22 @@ def distilbert_preprocess(text: str, max_length: int = 512) -> str:
     """
     if not text:
         return ""
-    return " ".join(text.split()[:max_length])
+
+    # Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        "sentence_transformers/msmarco-distilbert-base-tas-b"
+    )
+
+    tokens = tokenizer(
+        text,
+        truncation=True,
+        max_length=max_length,
+        return_tensors="pt",
+        return_attention_mask=False,
+        return_token_type_ids=False,
+    )
+
+    return tokenizer.decode(tokens["input_ids"][0], skip_special_tokens=True)
 
 
 def modernbert_preprocess(text: str) -> str:
