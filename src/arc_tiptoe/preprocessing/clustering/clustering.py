@@ -270,7 +270,10 @@ class Clusterer(ABC):
     def _sub_clustering(self, embedded_cluster_contents):
         """Sub-cluster the contents of a cluster to create bundles."""
         num_bundles = int(
-            np.ceil(float(len(embedded_cluster_contents)) / float(self.avg_bundle_size))
+            2.0
+            * np.ceil(
+                float(len(embedded_cluster_contents)) / float(self.avg_bundle_size)
+            )
         )
         self.logger.info("Sub-clustering into %d bundles", num_bundles)
 
@@ -299,7 +302,9 @@ class Clusterer(ABC):
 
         # If all documents are in the same cluster, divide them arbitrarily into bundles
         if len(assignment_dict) == 1 and num_bundles > 1:
-            self.logger.info("All documents are in the same cluster, dividing arbitrarily")
+            self.logger.info(
+                "All documents are in the same cluster, dividing arbitrarily"
+            )
             for i in tqdm(
                 range(num_bundles),
                 desc="Dividing arbitrarily",
