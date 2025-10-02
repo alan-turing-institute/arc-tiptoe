@@ -5,6 +5,7 @@ Clustering methods. Includes:
 TODO:
 - HDBSCAN
 - Agglomerative Clustering
+- GemmaEmbed Clustering?
 """
 
 import faiss
@@ -25,5 +26,6 @@ def kmeans_sub_cluster(embed_contents: np.ndarray, num_bundles: int, n_redo=1):
     dim = embed_contents.shape[1]
     kmeans = faiss.Kmeans(dim, num_bundles, verbose=True, nredo=n_redo)
     kmeans.train(embed_contents.astype(np.float32))
+    centroids = kmeans.centroids
     _, assignments = kmeans.index.search(embed_contents.astype(np.float32), 1)
-    return assignments
+    return centroids, assignments

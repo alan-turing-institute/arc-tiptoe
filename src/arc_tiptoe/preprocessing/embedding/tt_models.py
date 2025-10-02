@@ -2,12 +2,68 @@
 Load the models for embedding.
 """
 
+import os
+
 from sentence_transformers import SentenceTransformer
 from torch import device as torch_device
+from transformers import AutoTokenizer
 
 
 def load_sentence_transformer(
     model_name: str, device: torch_device
 ) -> SentenceTransformer:
     """Load a SentenceTransformer model."""
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    logical_cpus = os.cpu_count()
+    print(f"Number of cpus: {logical_cpus}")
+    # os.environ["OMP_NUM_THREADS"] = str(logical_cpus)
+    os.environ["OMP_NUM_THREADS"] = "1"
     return SentenceTransformer(model_name, device=device)
+
+
+# ---- Preprocessing for models -------
+def distilbert_preprocess(text: str, max_length: int = 512) -> str:
+    """
+    For the distilbert msmarco model the text needs to be capped at a smaller length
+    """
+    if not text:
+        return ""
+
+    # Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        "sentence_transformers/msmarco-distilbert-base-tas-b"
+    )
+
+    tokens = tokenizer(
+        text,
+        truncation=True,
+        max_length=max_length,
+        return_tensors="pt",
+        return_attention_mask=False,
+        return_token_type_ids=False,
+    )
+
+    return tokenizer.decode(tokens["input_ids"][0], skip_special_tokens=True)
+
+
+def modernbert_preprocess(text: str) -> str:
+    """
+    For the modernbert embed model this the text needs to be prepended with,
+    'search_document: '
+    """
+    return f"search_document: {text}"
+
+
+def embedding_gemma_preprocess(text: str) -> str:
+    """
+    For the gemma embedding model the text needs to be prepended with,
+    'task: clustering | query: '
+    """
+    return f"task: clustering | query: {text}"
+
+
+PREPROCESSING_METHODS = {
+    "msmarco-distilbert-base-tas-b": distilbert_preprocess,
+    "nomic-ai/modernbert-embed-base": modernbert_preprocess,
+    "google/embeddinggemma-300m": embedding_gemma_preprocess,
+}
