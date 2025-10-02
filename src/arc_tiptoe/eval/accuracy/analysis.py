@@ -74,7 +74,14 @@ def mean_rr_metrics(all_results: dict[str, dict]) -> float:
 
 
 def run_analysis(results_pth: str, verbose: bool = False) -> EvalMetrics:
-    """Run analysis on retrieval results and print mean metrics."""
+    """Run analysis on retrieval results and print mean metrics.
+    Args:
+        results_pth (str): Path to the JSON file containing all query results.
+        verbose (bool): Whether to print detailed metrics. Defaults to False.
+    Returns:
+        EvalMetrics: NamedTuple containing mean precision, recall, F1, CG, DCG, nDCG,
+        and MRR.
+    """
     all_results = parse_json(results_pth)
 
     mean_precision, mean_recall, mean_f1 = mean_f1_metrics(all_results)
@@ -152,6 +159,18 @@ def _evaluate(
 def evaluate_queries(
     query_list, search_results, print_results=False, target_relevance_level=None
 ):
+    """
+    Evaluate retrieval results for a list of queries.
+
+    Args:
+        query_list: List of queries with their IDs and relevance judgments.
+        search_results: Dictionary of search results keyed by query ID.
+        print_results: Whether to print results. Defaults to False.
+        target_relevance_level: The relevance level to evaluate. Defaults to None.
+
+    Returns:
+        Dictionary of evaluation results for each query.
+    """
     all_results = {}
     for qid, _, _, qrels in tqdm(query_list, desc="Query No."):
         query_results = {}

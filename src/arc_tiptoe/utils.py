@@ -3,8 +3,14 @@ import logging
 import os
 
 
-def save_to_json(results, save_path, **json_kwargs):
-    """Save outputs to a JSON file."""
+def save_to_json(results: dict, save_path: str, **json_kwargs) -> str:
+    """Save outputs to a JSON file.
+    Args:
+        results (dict): The results to save.
+        save_path (str): The path where the JSON file will be saved.
+        **json_kwargs: Additional keyword arguments for json.dump().
+    Returns:
+        str: The path where the JSON file was saved."""
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     with open(save_path, "w", encoding="utf-8") as f:

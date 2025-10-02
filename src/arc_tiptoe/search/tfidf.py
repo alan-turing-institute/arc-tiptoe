@@ -2,6 +2,7 @@ import os
 from typing import NamedTuple
 
 import numpy as np
+from ir_datasets import Dataset
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 
@@ -42,14 +43,20 @@ class QueryResult(NamedTuple):
     scores: list[float | int]
 
 
-def get_top_relevance_level(dataset):
+def get_top_relevance_level(dataset: Dataset) -> int | None:
+    """Get the highest relevance level from the dataset's metadata.
+    Args:
+        dataset (Dataset): The ir_datasets dataset object.
+    Returns:
+       The highest relevance level, or None if not found.
+    """
     meta_data = dataset.metadata()
     rel_counts = meta_data["qrels"]["fields"]["relevance"]["counts_by_value"]
     vals = [int(k) for k in rel_counts if k.isdigit()]
     return max(vals) if vals else None
 
 
-def check_existing_results(dataset_name, doc_count):
+def check_existing_results(dataset_name: str, doc_count: int) -> str | None:
     """Check if search results already exist for given parameters."""
     data_save_name = dataset_name.replace("/", "_")  # should have happened already
     results_dir = os.path.join(RESULTS_DIR, data_save_name, "tfidf", "search_results")
@@ -60,7 +67,12 @@ def check_existing_results(dataset_name, doc_count):
     return None
 
 
-def search_queries(query_list, doc_ids, model: TFIDFModel, search_config: SearchConfig):
+def search_queries(
+    query_list,
+    doc_ids,
+    model: TFIDFModel,
+    search_config: SearchConfig,
+) -> dict:
     """Execute queries using TF-IDF similarity and save results."""
     search_results = {}
 
@@ -102,7 +114,7 @@ def search_queries_batch(
     model: TFIDFModel,
     search_config: SearchConfig,
     batch_size: int = 32,
-):
+) -> dict:
     """
     Execute queries using TF-IDF similarity in batches for improved performance.
 

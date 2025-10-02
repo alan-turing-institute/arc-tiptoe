@@ -2,6 +2,7 @@ import logging
 from multiprocessing import Pool, cpu_count
 
 import nltk
+from ir_datasets import Dataset
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
@@ -29,8 +30,15 @@ def get_relevant_docs(
     return [doc_id for doc_id, rel in doc_dict.items() if rel > 0]
 
 
-def preprocess_text(text):
-    """Preprocess text with tokenization, lowercasing, and stemming."""
+def preprocess_text(text: str) -> str:
+    """Preprocess text with tokenization, lowercasing, and stemming.
+
+    Args:
+        text (str): The input text to preprocess.
+
+    Returns:
+        str: The preprocessed text.
+    """
     stemmer = PorterStemmer()
     stop_words = (
         set(stopwords.words("english"))
@@ -55,7 +63,20 @@ def preprocess_batch(texts):
     return [preprocess_text(text) for text in texts]
 
 
-def load_documents_from_ir_datasets(dataset, max_documents, batch_size=1000):
+def load_documents_from_ir_datasets(
+    dataset: Dataset, max_documents: int | None, batch_size: int = 1000
+) -> tuple[list[str], list[str]]:
+    """
+    Load documents from an ir_datasets dataset.
+
+    Args:
+        dataset: The ir_datasets dataset to load documents from.
+        max_documents: Maximum number of documents to load. If None, load all.
+        batch_size: Number of documents to process in each batch. Defaults to 1000.
+
+    Returns:
+        A tuple of two lists: document IDs and document contents.
+    """
     doc_ids = []
     doc_contents = []
 
@@ -119,8 +140,16 @@ def load_documents_from_ir_datasets(dataset, max_documents, batch_size=1000):
     return doc_ids, doc_contents
 
 
-def load_doc_ids_only(dataset, max_documents=None):
-    """Load only document IDs from ir_datasets."""
+def load_doc_ids_only(dataset: Dataset, max_documents=None) -> list[str]:
+    """Load only document IDs from ir_datasets, if we don't need full documents.
+
+    Args:
+        dataset (Dataset): The ir_datasets dataset object.
+        max_documents (int | None): Maximum number of document IDs to load. If None,
+        load all.
+
+    Returns:
+        List of document IDs."""
     logging.info("Loading only document IDs...")
     doc_ids = []
     n_docs = max_documents if max_documents else dataset.docs_count()
@@ -133,7 +162,18 @@ def load_doc_ids_only(dataset, max_documents=None):
     return doc_ids
 
 
-def load_queries_from_ir_datasets(dataset):
+def load_queries_from_ir_datasets(
+    dataset: Dataset,
+) -> list[tuple[str, str, str, dict[str, int]]]:
+    """
+    Load queries from an ir_datasets dataset.
+
+    Args:
+        dataset: The ir_datasets dataset to load queries from.
+
+    Returns:
+        A list of tuples: (query_id, original_query, processed_query, qrels_dict).
+    """
     qrels_ref = dataset.qrels_dict()
     query_list = []
     for query in dataset.queries_iter():

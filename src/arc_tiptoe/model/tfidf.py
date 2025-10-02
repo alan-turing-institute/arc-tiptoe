@@ -20,8 +20,16 @@ class TFIDFModel(NamedTuple):
     tfidf_matrix: spmatrix
 
 
-def train_tfidf_model(dataset_name, doc_contents):
-    """Train TF-IDF model using scikit-learn with time estimation."""
+def train_tfidf_model(dataset_name: str, doc_contents: list[str]) -> TFIDFModel:
+    """Train TF-IDF model using scikit-learn.
+
+    Args:
+        dataset_name (str): The name of the dataset.
+        doc_contents (list[str]): List of document contents to train on.
+
+    Returns:
+        TFIDFModel: The trained TF-IDF model.
+    """
     doc_count = len(doc_contents)
 
     # Check if model already exists
@@ -55,8 +63,17 @@ def train_tfidf_model(dataset_name, doc_contents):
     return TFIDFModel(vectorizer=vectorizer, tfidf_matrix=tfidf_matrix)
 
 
-def check_existing_model(dataset_name, doc_count, accept_equiv=True):
-    """Wrapper to check for existing model, considering equivalent datasets."""
+def check_existing_model(
+    dataset_name: str, doc_count: int, accept_equiv: bool = True
+) -> str | None:
+    """Wrapper to check for existing model, considering equivalent datasets.
+    Args:
+        dataset_name (str): The name of the dataset.
+        doc_count (int): The number of documents in the dataset.
+        accept_equiv (bool): Whether to check equivalent datasets if no model is found.
+    Returns:
+        str | None: The path to the existing model or None if not found.
+    """
     existing_model = _check_existing_model(dataset_name, doc_count)
     if existing_model:
         return existing_model
@@ -108,8 +125,13 @@ def save_tfidf_model(vectorizer, tfidf_matrix, model_name, dataset_name):
     print(f"  Matrix: {matrix_path}")
 
 
-def load_tfidf_model(model_path_stem):
-    """Load a saved TF-IDF model from disk."""
+def load_tfidf_model(model_path_stem: str) -> TFIDFModel:
+    """Load a saved TF-IDF model from disk.
+    Args:
+        model_path_stem (str): The stem path of the model files (without extensions).
+    Returns:
+        TFIDFModel: The loaded TF-IDF model.
+    """
 
     # Load vectorizer
     vectorizer_path = f"{model_path_stem}_vectorizer.pkl"
