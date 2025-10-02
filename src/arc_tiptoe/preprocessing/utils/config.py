@@ -148,7 +148,7 @@ class PreProcessConfig:
                 {
                     "apply_clustering": None,
                     "clustering_method": None,
-                    "avg_bundle_size": 4000,
+                    "avg_sub_cluster_size": 4000,
                     "urls_per_bundle": 160,
                     "max_size": 4000,
                     "MULTI_ASSIGN": 2,

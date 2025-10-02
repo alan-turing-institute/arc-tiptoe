@@ -55,7 +55,7 @@ class Clusterer(ABC):
             self.urls = np.load(f"{self.config.embeddings_path}/doc_ids.npy")
             self.num_clusters = int(np.ceil(np.sqrt(len(self.embeddings))))
             self.config.cluster["num_clusters"] = self.num_clusters
-            self.avg_bundle_size = self.config.cluster["avg_bundle_size"]
+            self.avg_sub_cluster_size = self.config.cluster["avg_sub_cluster_size"]
             self.urls_per_bundle = self.config.cluster["urls_per_bundle"]
             self.max_size = self.config.cluster["max_size"]
             self.MULTI_ASSIGN = self.config.cluster.get("MULTI_ASSIGN", 2)
@@ -242,7 +242,7 @@ class Clusterer(ABC):
         cluster_contents = utils.parse_file(cluster_file)
         self.logger.info("LEN = %d", len(cluster_contents))
         if len(cluster_contents) == 0:
-            return
+            return None
         new_centroids, assignment_dict = self._sub_clustering(cluster_contents)
 
         self.logger.info(
@@ -251,13 +251,13 @@ class Clusterer(ABC):
             cluster_idx,
         )
 
-        for bundle in tqdm(assignment_dict, desc="Writing bundles"):
+        for sub_cluster in tqdm(assignment_dict, desc="Writing sub clusters"):
             with open(
                 f"{self.processing_path}/processed_clusters/cluster_{cluster_idx}.txt",
                 "a",
                 encoding="utf-8",
             ) as f:
-                for elem in assignment_dict[bundle]:
+                for elem in assignment_dict[sub_cluster]:
                     if len(elem) == 3:
                         f.write(f"{elem[0]} | {elem[1]} | {elem[2]}\n")
                     else:
@@ -269,13 +269,13 @@ class Clusterer(ABC):
 
     def _sub_clustering(self, embedded_cluster_contents):
         """Sub-cluster the contents of a cluster to create bundles."""
-        num_bundles = int(
+        num_sub_clusters = int(
             2.0
             * np.ceil(
-                float(len(embedded_cluster_contents)) / float(self.avg_bundle_size)
+                float(len(embedded_cluster_contents)) / float(self.avg_sub_cluster_size)
             )
         )
-        self.logger.info("Sub-clustering into %d bundles", num_bundles)
+        self.logger.info("Sub-clustering into %d sub clusters", num_sub_clusters)
 
         # extract the embeddings from the cluster and sub-cluster
         cluster_embeddings = np.loadtxt(
@@ -286,7 +286,7 @@ class Clusterer(ABC):
             assignments = [[0]]
         else:
             new_centroids, assignments = self._sub_cluster(
-                cluster_embeddings, num_bundles
+                cluster_embeddings, num_sub_clusters
             )
 
         # create assignment dict
@@ -301,21 +301,21 @@ class Clusterer(ABC):
                 assignment_dict[cluster_id].append(embedded_cluster_contents[idx])
 
         # If all documents are in the same cluster, divide them arbitrarily into bundles
-        if len(assignment_dict) == 1 and num_bundles > 1:
+        if len(assignment_dict) == 1 and num_sub_clusters > 1:
             self.logger.info(
                 "All documents are in the same cluster, dividing arbitrarily"
             )
             for i in tqdm(
-                range(num_bundles),
+                range(num_sub_clusters),
                 desc="Dividing arbitrarily",
             ):
                 new_centroids[i] = new_centroids[list(assignment_dict.keys())[0]]
                 upper_bound = min(
-                    (i + 1) * self.avg_bundle_size, len(embedded_cluster_contents)
+                    (i + 1) * self.avg_sub_cluster_size, len(embedded_cluster_contents)
                 )
                 assignment_dict[i] = [
                     embedded_cluster_contents[j]
-                    for j in range(i * self.avg_bundle_size, upper_bound)
+                    for j in range(i * self.avg_sub_cluster_size, upper_bound)
                 ]
 
             return new_centroids, assignment_dict
@@ -328,7 +328,7 @@ class Clusterer(ABC):
         for cluster in tqdm(init_clusters, desc="Processing clusters"):
             if len(assignment_dict[cluster]) > self.max_size:
                 self.logger.info(
-                    "Cluster %d exceeds max size, creating bundles", cluster
+                    "Cluster %d exceeds max size, creating sub clusters", cluster
                 )
                 sub_centroids, sub_assigmnet_dict = self._sub_clustering(
                     assignment_dict[cluster]
@@ -348,7 +348,7 @@ class Clusterer(ABC):
         return new_centroids, assignment_dict
 
     @abstractmethod
-    def _sub_cluster(self, embedded_cluster_contents, num_bundles):
+    def _sub_cluster(self, embedded_cluster_contents, num_sub_clusters):
         """Sub-cluster the content, rewrite for given clustering method."""
         return NotImplementedError()
 
@@ -376,6 +376,6 @@ class KMeansClusterer(Clusterer):
             return 1
         return centroids
 
-    def _sub_cluster(self, embedded_cluster_contents, num_bundles):
+    def _sub_cluster(self, embedded_cluster_contents, num_sub_clusters):
         """Sub-cluster the contents of a cluster using kmeas."""
-        return cm.kmeans_sub_cluster(embedded_cluster_contents, num_bundles)
+        return cm.kmeans_sub_cluster(embedded_cluster_contents, num_sub_clusters)
