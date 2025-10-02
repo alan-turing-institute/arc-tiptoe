@@ -3,7 +3,7 @@ import csv
 import logging
 
 
-def parse_clustering_search_results(filepath):
+def parse_clustering_search_results(filepath: str) -> dict[int, dict[str, dict]]:
     """
     Parse search results CSV with number of clusters as outer key.
 
@@ -19,7 +19,7 @@ def parse_clustering_search_results(filepath):
         }
     """
     # First pass: organize data by query_id and cluster
-    raw_data = {}
+    raw_data: dict[str, dict[int, dict]] = {}
 
     with open(filepath) as file:
         reader = csv.DictReader(file)
@@ -27,10 +27,11 @@ def parse_clustering_search_results(filepath):
 
         # Extract cluster numbers
         cluster_nums = []
-        for header in headers:
-            if header.startswith("cluster_") and header.endswith("_res"):
-                cluster_num = int(header.split("_")[1])
-                cluster_nums.append(cluster_num)
+        if headers:
+            for header in headers:
+                if header.startswith("cluster_") and header.endswith("_res"):
+                    cluster_num = int(header.split("_")[1])
+                    cluster_nums.append(cluster_num)
 
         cluster_nums.sort()
 
@@ -75,7 +76,7 @@ def parse_clustering_search_results(filepath):
                 }
 
     # Second pass: reorganize with num_clusters as outer key and concatenate results
-    results = {}
+    results: dict[int, dict[str, dict]] = {}
 
     for num_clusters in range(1, len(cluster_nums) + 1):
         results[num_clusters] = {}
@@ -99,9 +100,9 @@ def parse_clustering_search_results(filepath):
             if all_docs and all_scores:
                 combined = list(zip(all_docs, all_scores, strict=True))
                 combined_sorted = sorted(combined, key=lambda x: x[1], reverse=True)
-                all_docs, all_scores = zip(*combined_sorted, strict=True)
-                all_docs = list(all_docs)
-                all_scores = list(all_scores)
+                all_docs_tuple, all_scores_tuple = zip(*combined_sorted, strict=True)
+                all_docs = list(all_docs_tuple)
+                all_scores = list(all_scores_tuple)
 
             results[num_clusters][query_id] = {
                 "retrieved_docs": all_docs,
