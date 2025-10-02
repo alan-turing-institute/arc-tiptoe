@@ -32,7 +32,7 @@ def recall(retrieved_docs: list[str], relevant_docs: list[str]) -> float:
     retrieved_set = set(retrieved_docs)
     relevant_set = set(relevant_docs)
     true_positives = len(retrieved_set.intersection(relevant_set))
-    return true_positives / len(relevant_set)
+    return true_positives / len(relevant_set) if len(relevant_set) > 0 else 0.0
 
 
 def precision(retrieved_docs: list[str], relevant_docs: list[str]) -> float:
@@ -49,7 +49,7 @@ def precision(retrieved_docs: list[str], relevant_docs: list[str]) -> float:
     retrieved_set = set(retrieved_docs)
     relevant_set = set(relevant_docs)
     true_positives = len(retrieved_set.intersection(relevant_set))
-    return true_positives / len(retrieved_set)
+    return true_positives / len(retrieved_set) if len(retrieved_set) > 0 else 0.0
 
 
 def f1(precision: float, recall: float) -> float:

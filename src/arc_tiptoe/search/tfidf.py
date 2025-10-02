@@ -42,6 +42,24 @@ class QueryResult(NamedTuple):
     scores: list[float | int]
 
 
+def get_top_relevance_level(dataset):
+    meta_data = dataset.metadata()
+    rel_counts = meta_data["qrels"]["fields"]["relevance"]["counts_by_value"]
+    vals = [int(k) for k in rel_counts if k.isdigit()]
+    return max(vals) if vals else None
+
+
+def check_existing_results(dataset_name, doc_count):
+    """Check if search results already exist for given parameters."""
+    data_save_name = dataset_name.replace("/", "_")  # should have happened already
+    results_dir = os.path.join(RESULTS_DIR, data_save_name, "tfidf", "search_results")
+    results_name = f"{doc_count}_docs.json"
+    results_path = os.path.join(results_dir, results_name)
+    if os.path.exists(results_path):
+        return results_path
+    return None
+
+
 def search_queries(query_list, doc_ids, model: TFIDFModel, search_config: SearchConfig):
     """Execute queries using TF-IDF similarity and save results."""
     search_results = {}
@@ -143,7 +161,7 @@ def search_queries_batch(
         RESULTS_DIR,
         search_config.save_path,
         "search_results",
-        f"{search_config.max_documents}_docs_batch.json",
+        f"{search_config.max_documents}_docs.json",
     )
     save_to_json(results=search_results, save_path=save_path)
     return search_results

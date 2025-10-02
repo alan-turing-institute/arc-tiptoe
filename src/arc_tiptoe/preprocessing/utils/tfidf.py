@@ -1,7 +1,6 @@
 import logging
 from multiprocessing import Pool, cpu_count
 
-import ir_datasets
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
@@ -16,8 +15,8 @@ def get_relevant_docs(
     Get relevant document IDs for a given query ID.
 
     Args:
-        qrels_ref: A reference to the qrels dictionary.
-        query_id: The ID of the query.
+        doc_dict: A dictionary mapping document IDs to their relevance scores.
+        target_relevance_level: The relevance level to filter documents by.
 
     Returns:
         A list of relevant document IDs.
@@ -74,10 +73,14 @@ def load_documents_from_ir_datasets(dataset, max_documents, batch_size=1000):
 
             batch_ids.append(doc.doc_id)
             # Combine title and body for better retrieval
+            full_text = ""
             if hasattr(doc, "title") and doc.title:
-                full_text = f"{doc.title} {doc.body}"
+                full_text += f"{doc.title}"
             else:
-                full_text = doc.body
+                if hasattr(doc, "text") and doc.text:
+                    full_text += doc.text
+                elif hasattr(doc, "body") and doc.body:
+                    full_text += doc.body
             batch_texts.append(full_text)
 
             # Process batch when it's full

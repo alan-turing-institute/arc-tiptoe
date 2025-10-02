@@ -16,7 +16,14 @@ from arc_tiptoe.preprocessing.utils.tfidf import (
     load_documents_from_ir_datasets,
     load_queries_from_ir_datasets,
 )
-from arc_tiptoe.search.tfidf import SearchConfig, save_to_json, search_queries_batch
+from arc_tiptoe.search.tfidf import (
+    SearchConfig,
+    check_existing_results,
+    get_top_relevance_level,
+    save_to_json,
+    search_queries_batch,
+)
+from arc_tiptoe.utils import parse_json
 
 
 def main(args):
@@ -30,48 +37,72 @@ def main(args):
     dataset = ir_datasets.load(args.dataset_name)
     dataset_name = args.dataset_name.replace("/", "_")
 
-    # Check for existing model before loading documents
     n_docs = max_docs if max_docs else dataset.docs_count()
-    model_path_stem = check_existing_model(dataset_name=dataset_name, doc_count=n_docs)
 
-    if model_path_stem:
-        msg = f"""Found existing TF-IDF model for:
-        DATASET = {dataset_name},
-        MAX_DOCUMENTS = {n_docs}.
+    # Check for existing results before loading documents
+    preliminary_results_dir = check_existing_results(
+        dataset_name=dataset_name,
+        doc_count=n_docs,
+    )
+    if preliminary_results_dir:
+        msg = f"""Found existing search results for:
+        \tDATASET = {dataset_name},
+        \tMAX_DOCUMENTS = {n_docs},
         """
         logging.info(msg)
-        model = load_tfidf_model(model_path_stem)
-        doc_ids = load_doc_ids_only(
-            dataset=dataset,
-            max_documents=n_docs,
-        )
+        preliminary_results = parse_json(preliminary_results_dir)
+
     else:
-        msg = f"""Did not find existing TF-IDF model for:
-        DATASET = {dataset_name},
-        MAX_DOCUMENTS = {n_docs}.
-        """
-        logging.info(msg)
-        doc_ids, doc_contents = load_documents_from_ir_datasets(
-            dataset=dataset,
-            max_documents=n_docs,
-            batch_size=batch_size,
+        # Check for existing model before loading full documents
+        model_path_stem = check_existing_model(
+            dataset_name=dataset_name, doc_count=n_docs
         )
-        model = train_tfidf_model(dataset_name=dataset_name, doc_contents=doc_contents)
+
+        if model_path_stem:
+            msg = f"""Found existing TF-IDF model for:
+            DATASET = {dataset_name},
+            MAX_DOCUMENTS = {n_docs}.
+            """
+            logging.info(msg)
+            model = load_tfidf_model(model_path_stem)
+            doc_ids = load_doc_ids_only(
+                dataset=dataset,
+                max_documents=n_docs,
+            )
+        else:
+            msg = f"""Did not find existing TF-IDF model for:
+            DATASET = {dataset_name},
+            MAX_DOCUMENTS = {n_docs}.
+            """
+            logging.info(msg)
+            doc_ids, doc_contents = load_documents_from_ir_datasets(
+                dataset=dataset,
+                max_documents=n_docs,
+                batch_size=batch_size,
+            )
+            model = train_tfidf_model(
+                dataset_name=dataset_name, doc_contents=doc_contents
+            )
 
     # Run queries
     query_list = load_queries_from_ir_datasets(dataset=dataset)
 
     outputs_dir = os.path.join(RESULTS_DIR, dataset_name, "tfidf")
 
-    search_config = SearchConfig(
-        max_documents=n_docs, results_per_query=n_results, save_path=outputs_dir
-    )
-    preliminary_results = search_queries_batch(
-        query_list, doc_ids, model, search_config
-    )
+    if "preliminary_results" not in locals():
+        search_config = SearchConfig(
+            max_documents=n_docs, results_per_query=n_results, save_path=outputs_dir
+        )
+        preliminary_results = search_queries_batch(
+            query_list, doc_ids, model, search_config
+        )
 
     # Perform evaluation
-    results = evaluate_queries(query_list, preliminary_results)
+    results = evaluate_queries(
+        query_list,
+        preliminary_results,
+        target_relevance_level=get_top_relevance_level(dataset),
+    )
 
     all_results_path = save_to_json(
         results,
