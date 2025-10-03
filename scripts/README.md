@@ -1,12 +1,10 @@
-# Scripts Documentation
-
-This directory contains utility scripts for analyzing and evaluating search results from the ARC Tiptoe private web search system.
+# Scripts
 
 ## Overview
 
 The scripts in this directory provide analysis and evaluation tools for:
 - Evaluating TF-IDF baseline search performance
-- Analyzing search results from CSV files (clustering analysis)
+- Analyzing search results from CSV files (clustering retrieval results)
 - Preprocessing configurations
 
 ## Scripts
