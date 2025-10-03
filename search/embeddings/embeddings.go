@@ -1,7 +1,6 @@
 package embeddings
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 	"os/exec"
@@ -21,7 +20,6 @@ func SetupEmbeddingProcess(numClusters int, conf *config.Config) (io.WriteCloser
 
 	toRun := "embeddings/embed_text.py"
 	topKClusters := conf.GetSearchTopK()
-	fmt.Println("Running embedding process with topKClusters to search over =", topKClusters)
 	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters), strconv.Itoa(topKClusters))
 
 	stdin, err1 := cmd.StdinPipe()

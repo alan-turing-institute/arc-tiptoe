@@ -183,9 +183,6 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, in io.WriteCloser, 
 		panic(err)
 	}
 
-	// print the query output for debugging
-	fmt.Printf("Query clusters: %v\n", query.TopKClusterIndices)
-
 	// Check enough clusters are returned
 	if len(query.TopKClusterIndices) < topKCluster {
 		panic(fmt.Sprintf("Expected at least %d clusters, got %d", topKCluster, len(query.TopKClusterIndices)))
