@@ -4,8 +4,11 @@ Configuration utilities for the preprocessing pipeline.
 
 import hashlib
 import json
+import logging
 import os
+import time
 import uuid
+from pathlib import Path
 
 # from known_methods import (
 #     CLUSTERING_METHODS,
@@ -59,6 +62,7 @@ class PreProcessConfig:
     """
 
     def __init__(self, config_path: str | None):
+        self.orig_config_path = config_path
         self.uuid = None
         self.embed_lib = None
         self.embed_model = None
@@ -77,6 +81,7 @@ class PreProcessConfig:
             "avg_bundle_size": 4000,
             "urls_per_bundle": 160,
             "max_size": 4000,
+            "MULTI_ASSIGN": 1,
         }
         self.dim_red = {
             "apply_dim_red": None,
@@ -96,18 +101,26 @@ class PreProcessConfig:
         self.dim_red_path = None
 
         # load config from existing or create new config
-        if config_path is not None:
-            self.load_config(config_path)
-        else:
-            self.gen_config_from_cli()
+        self._load_config(config_path)
 
         # create directory structure
-        self.gen_directory_structure()
+        self._gen_directory_structure()
+
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            handlers=[
+                logging.StreamHandler(),
+                logging.FileHandler(f"data/{self.uuid}/{self.uuid}_preprocessing.log"),
+            ],
+        )
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Config setup done")
 
         # save updated config
         self.save_config()
 
-    def load_config(self, config_path: str):
+    def _load_config(self, config_path: str):
         """
         Load the config from a pre-existing JSON file. If the uuid has not been
         generated, it will be created based on the current config.
@@ -126,6 +139,7 @@ class PreProcessConfig:
                     "use_gpu": None,
                     "sequence_length": None,
                     "preprocessing_required": False,
+                    "embedding_dimension": 768,
                 },
             )
             self.data = config.get("data", {"dataset": None, "data_subset_size": None})
@@ -134,9 +148,10 @@ class PreProcessConfig:
                 {
                     "apply_clustering": None,
                     "clustering_method": None,
-                    "avg_bundle_size": 4000,
+                    "avg_sub_cluster_size": 4000,
                     "urls_per_bundle": 160,
                     "max_size": 4000,
+                    "MULTI_ASSIGN": 2,
                 },
             )
             self.dim_red = config.get(
@@ -156,9 +171,9 @@ class PreProcessConfig:
             self.dim_red_path = config.get("dim_red_path", None)
 
         if self.uuid is None:
-            self.uuid = self.gen_uuid()
+            self.uuid = self._gen_uuid()
 
-    def gen_uuid(self):
+    def _gen_uuid(self):
         """Generate the uuid from the config. For simpler comparison it appends
         numerical values in the following way:
 
@@ -179,11 +194,11 @@ class PreProcessConfig:
             f"{self.data['data_subset_size']}-{self.dim_red['dim_red_dimension']}"
         )
 
-    def gen_config_from_cli(self):
+    def _gen_config_from_cli(self):
         """Gen the config from a cli input"""
         return NotImplementedError()
 
-    def gen_directory_structure(self):
+    def _gen_directory_structure(self):
         """
         Generate the directory structure for the data.
 
@@ -204,6 +219,9 @@ class PreProcessConfig:
 
         os.makedirs(os.path.join(BASE_DIR, self.uuid, "logs"), exist_ok=True)
         os.makedirs(os.path.join(BASE_DIR, self.uuid, "artifact"), exist_ok=True)
+        artifact_dim = f"dim{self.dim_red['dim_red_dimension']}"
+        artifacts_path = os.path.join(BASE_DIR, self.uuid, "artifact", artifact_dim)
+        os.makedirs(artifacts_path, exist_ok=True)
 
     def check_for_previous_compute(self):
         """Check for previously computed objects, copy/reference if done"""
@@ -227,5 +245,40 @@ class PreProcessConfig:
             "dim_red_path": self.dim_red_path,
         }
         config_path = os.path.join(BASE_DIR, self.uuid, "config.json")
+        self.logger.info("Saving config in data files")
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4)
+        if self.orig_config_path is not None:
+            self.logger.info("Saving config to original path")
+            new_save_config_path = Path(self.orig_config_path).with_suffix("")
+            new_save_config_path = (
+                f"{new_save_config_path}_checkpoint_"
+                f"{time.strftime('%Y%m%d-%H%M%S')}.json"
+            )
+            with open(new_save_config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4)
+
+    def _check_for_config(self, config_path):
+        """Check if a given config already exists"""
+        with open(config_path, encoding="utf-8") as f:
+            current_config = json.load(f)
+
+        if os.path.exists(f"{BASE_DIR}/{self.uuid}/config.json"):
+            with open(f"{BASE_DIR}/{self.uuid}/config.json", encoding="utf-8") as g:
+                old_config = json.load(g)
+
+            core_fields = [
+                "embed_model",
+                "embed_lib",
+                "embed_pars",
+                "data",
+                "cluster",
+                "dim_red",
+            ]
+            for field in core_fields:
+                if current_config[field] != old_config[field]:
+                    return False
+
+            return True
+
+        return False

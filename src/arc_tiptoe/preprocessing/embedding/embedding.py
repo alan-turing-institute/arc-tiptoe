@@ -30,8 +30,9 @@ class Embedder(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
+                    f"data/{self.config.uuid}/"
                     f"{self.config.data['dataset']}_"
-                    f"{self.config.data['data_subset_size']}.log"
+                    f"{self.config.data['data_subset_size']}_embedding.log"
                 ),
             ],
         )
@@ -43,14 +44,20 @@ class Embedder(ABC):
             if within_pipeline:
                 self._return_config_in_pipeline()
         else:
-            self.gen_directory_structure()
-            self.config.embeddings_path = os.path.join(
-                "data", self.config.uuid, "embedding", "embeddings"
-            )
             self.dataset = None
+            self.device = "cpu"
             if self.config.embed_pars.get("use_gpu", True):
-                self.device = "cuda" if torch.cuda.is_available() else "cpu"
+                if torch.cuda.is_available():
+                    self.device = "cuda"
+                    self.logger.info("Using cuda GPU")
+                elif torch.backends.mps.is_available():
+                    self.device = "mps"
             self.model = self.load_model(self.config.embed_model, self.device)
+            if self.config.embed_pars["preprocessing_required"]:
+                print(
+                    f"Preprocessing documents to truncated at "
+                    f"{self.config.embed_pars['sequence_length']}"
+                )
 
     def _return_config_in_pipeline(self):
         if self.within_pipeline:
@@ -131,7 +138,7 @@ class Embedder(ABC):
             )
 
         embeddings = np.array(
-            self.model.encode(
+            self.model.encode_document(
                 hf_dataset["body"],
                 batch_size=self.config.embed_pars.get("batch_size", 256),
                 convert_to_numpy=True,
@@ -177,7 +184,10 @@ class Embedder(ABC):
                 {
                     "doc_id": doc.doc_id,
                     "body": (
-                        self._preprocess_data(doc.body)
+                        self._preprocess_data(
+                            doc.body,
+                            max_length=self.config.embed_pars["sequence_length"],
+                        )
                         if self.config.embed_pars["preprocessing_required"]
                         else doc.body
                     ),
@@ -223,7 +233,7 @@ class Embedder(ABC):
         doc_ids = [doc["doc_id"] for doc in docs_buffer]
 
         embeddings = np.array(
-            self.model.encode(
+            self.model.encode_document(
                 texts,
                 batch_size=batch_size,
                 convert_to_numpy=True,
@@ -285,4 +295,6 @@ class SentenceTransformerEmbedder(Embedder):
 
     def load_model(self, model_name: str, device: str):
         """Load the SentenceTransformer model."""
-        return tt_models.load_sentence_transformer(model_name, device=device)
+        model = tt_models.load_sentence_transformer(model_name, device=device)
+        print(f"Model is using device {model.device}")
+        return model

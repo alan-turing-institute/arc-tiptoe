@@ -1,10 +1,10 @@
 package protocol
 
 import (
-		"os"
-	"fmt"
-	"time"
-"testing"
+  "os"
+  "fmt"
+  "time"
+  "testing"
   "strconv"
   "runtime/pprof"
 )
@@ -16,245 +16,237 @@ import (
 )
 
 import (
-	"github.com/ahenzinger/tiptoe/search/corpus"
-		"github.com/ahenzinger/tiptoe/search/utils"
-	"github.com/ahenzinger/tiptoe/search/embeddings"
+  "github.com/ahenzinger/tiptoe/search/corpus"
+  "github.com/ahenzinger/tiptoe/search/utils"
+  "github.com/ahenzinger/tiptoe/search/embeddings"
 )
 
 const embNumQueries = 20
 
 type testServer struct {
-	emb *underhood.Server[matrix.Elem64]
-	url *underhood.Server[matrix.Elem32]
+  emb *underhood.Server[matrix.Elem64]
+  url *underhood.Server[matrix.Elem32]
 }
 
 func setupTestServer(h *TiptoeHint) *testServer {
-	out := new(testServer)
-	if !h.EmbeddingsHint.IsEmpty() {
-		out.emb = underhood.NewServerHintOnly(&h.EmbeddingsHint.Hint)
-	}
+  out := new(testServer)
+  if !h.EmbeddingsHint.IsEmpty() {
+    out.emb = underhood.NewServerHintOnly(&h.EmbeddingsHint.Hint)
+  }
 
-	if !h.UrlsHint.IsEmpty() {
-		out.url = underhood.NewServerHintOnly(&h.UrlsHint.Hint)
-	}
-
-	return out
+  if !h.UrlsHint.IsEmpty() {
+    out.url = underhood.NewServerHintOnly(&h.UrlsHint.Hint)
+  }
+  
+  return out
 }
 
 func applyHint(s *testServer, hq *underhood.HintQuery) *UnderhoodAnswer {
-	out := new(UnderhoodAnswer)
-	if s.emb != nil {
-		out.EmbAnswer = *s.emb.HintAnswer(hq)
-	}
+  out := new(UnderhoodAnswer)
+  if s.emb != nil {
+    out.EmbAnswer = *s.emb.HintAnswer(hq)
+  }
 
-	if s.url != nil {
-		out.UrlAnswer = *s.url.HintAnswer(hq)
-	}
+  if s.url != nil {
+    out.UrlAnswer = *s.url.HintAnswer(hq)
+  }
 
-	return out
+  return out
 }
 
 func testRecoverSingle(s *Server, corp *corpus.Corpus) {
-	c := NewClient(false /* use coordinator */)
+  c := NewClient(false /* use coordinator */)
 
-	var h TiptoeHint
-	s.GetHint(true, &h)
-	c.Setup(&h)
-	logHintSize(&h)
+  var h TiptoeHint
+  s.GetHint(true, &h)
+  c.Setup(&h)
+  logHintSize(&h)
 
-	p := h.EmbeddingsHint.Info.P()
+  p := h.EmbeddingsHint.Info.P() 
 
-	tserv := setupTestServer(&h)
+  tserv := setupTestServer(&h)
 
-	for iter := 0; iter < embNumQueries; iter++ {
+  for iter := 0; iter < embNumQueries; iter++ {
     f, _ := os.Create("cpu-"+strconv.Itoa(iter)+".prof")
-		pprof.StartCPUProfile(f)
+    pprof.StartCPUProfile(f)
 
-		ct := c.PreprocessQuery()
+    ct := c.PreprocessQuery()
 
-		offlineStart := time.Now()
+    offlineStart := time.Now()
 
-		uAns := applyHint(tserv, ct)
+    uAns := applyHint(tserv, ct)
 
-		logOfflineStats(c.NumDocs(), offlineStart, ct, uAns)
-		c.ProcessHintApply(uAns)
+    logOfflineStats(c.NumDocs(), offlineStart, ct, uAns)
+    c.ProcessHintApply(uAns)
 
-		i := utils.RandomIndex(c.NumClusters())
+    i := utils.RandomIndex(c.NumClusters())
     emb := embeddings.RandomEmbedding(c.params.EmbeddingSlots, (1 << (c.params.SlotBits-1)))
-		query := c.QueryEmbeddings(emb, i)
+    query := c.QueryEmbeddings(emb, i)
 
-		start := time.Now()
-		var ans pir.Answer[matrix.Elem64]
-		s.GetEmbeddingsAnswer(query, &ans)
-		logStats(c.NumDocs(), start, query, &ans)
+    start := time.Now()
+    var ans pir.Answer[matrix.Elem64]
+    s.GetEmbeddingsAnswer(query, &ans)
+    logStats(c.NumDocs(), start, query, &ans)
 
-		dec := c.ReconstructEmbeddings(&ans, i)
+    dec := c.ReconstructEmbeddings(&ans, i)
 
-		clusterIndex := uint64(corp.ClusterToIndex(uint(i)))
-		checkAnswer(dec, clusterIndex, p, emb, corp)
+    clusterIndex := uint64(corp.ClusterToIndex(uint(i)))
+    checkAnswer(dec, clusterIndex, p, emb, corp)
 
-		pprof.StopCPUProfile()
-	}
+    pprof.StopCPUProfile()
+  }
 }
 
 func testRecoverCluster(s *Server, corp *corpus.Corpus) {
-	c := NewClient(false /* use coordinator */)
+  c := NewClient(false /* use coordinator */)
 
-	var h TiptoeHint
-	s.GetHint(true, &h)
-	c.Setup(&h)
-	logHintSize(&h)
+  var h TiptoeHint
+  s.GetHint(true, &h)
+  c.Setup(&h)
+  logHintSize(&h)
 
-	p := h.EmbeddingsHint.Info.P()
-	tserv := setupTestServer(&h)
+  p := h.EmbeddingsHint.Info.P() 
+  tserv := setupTestServer(&h)
 
-	for iter := 0; iter < embNumQueries; iter++ {
-		ct := c.PreprocessQuery()
+  for iter := 0; iter < embNumQueries; iter++ {
+    ct := c.PreprocessQuery()
 
-		offlineStart := time.Now()
-		uAns := applyHint(tserv, ct)
-		logOfflineStats(c.NumDocs(), offlineStart, ct, uAns)
-		c.ProcessHintApply(uAns)
+    offlineStart := time.Now()
+    uAns := applyHint(tserv, ct)
+    logOfflineStats(c.NumDocs(), offlineStart, ct, uAns)
+    c.ProcessHintApply(uAns)
 
-		i := utils.RandomIndex(c.NumClusters())
+    i := utils.RandomIndex(c.NumClusters())
     emb := embeddings.RandomEmbedding(c.params.EmbeddingSlots, (1 << (c.params.SlotBits-1)))
-		query := c.QueryEmbeddings(emb, i)
+    query := c.QueryEmbeddings(emb, i)
 
-		start := time.Now()
-		var ans pir.Answer[matrix.Elem64]
-		s.GetEmbeddingsAnswer(query, &ans)
-		logStats(c.NumDocs(), start, query, &ans)
+    start := time.Now()
+    var ans pir.Answer[matrix.Elem64]
+    s.GetEmbeddingsAnswer(query, &ans)
+    logStats(c.NumDocs(), start, query, &ans)
 
-		dec := c.ReconstructEmbeddingsWithinCluster(&ans, i)
-		checkAnswers(dec, uint(i), p, emb, corp)
-	}
+    dec := c.ReconstructEmbeddingsWithinCluster(&ans, i)
+    checkAnswers(dec, uint(i), p, emb, corp)
+  }
 }
 
 func testRecoverClusterNetworked(tcp string, useCoordinator bool, corp *corpus.Corpus) {
-	c := NewClient(useCoordinator)
+  c := NewClient(useCoordinator)
 
-	h := c.getHint(false /* keep conn */, tcp)
-	c.Setup(h)
-	logHintSize(h)
+  h := c.getHint(false /* keep conn */, tcp)
+  c.Setup(h)
+  logHintSize(h)
 
-	var tserv *testServer
-	p := h.EmbeddingsHint.Info.P()
-	if !useCoordinator {
-		tserv = setupTestServer(h)
-	}
+  var tserv *testServer
+  p := h.EmbeddingsHint.Info.P() 
+  if !useCoordinator {
+    tserv = setupTestServer(h)
+  }
 
-	for iter := 0; iter < embNumQueries; iter++ {
-		ct := c.PreprocessQuery()
+  for iter := 0; iter < embNumQueries; iter++ {
+    ct := c.PreprocessQuery()
 
-		var uAns *UnderhoodAnswer
-		offlineStart := time.Now()
-		if useCoordinator {
-			uAns = c.applyHint(ct, false /* keep conn */, tcp)
-		} else {
-			uAns = applyHint(tserv, ct)
-		}
-		logOfflineStats(c.NumDocs(), offlineStart, ct, uAns)
-		c.ProcessHintApply(uAns)
+    var uAns *UnderhoodAnswer
+    offlineStart := time.Now()
+    if useCoordinator {
+      uAns = c.applyHint(ct, false /* keep conn */, tcp)
+    } else {
+      uAns = applyHint(tserv, ct)
+    }
+    logOfflineStats(c.NumDocs(), offlineStart, ct, uAns)
+    c.ProcessHintApply(uAns)
 
-		i := utils.RandomIndex(c.NumClusters())
+    i := utils.RandomIndex(c.NumClusters())
     emb := embeddings.RandomEmbedding(c.params.EmbeddingSlots, (1 << (c.params.SlotBits-1)))
-		query := c.QueryEmbeddings(emb, i)
+    query := c.QueryEmbeddings(emb, i)
 
-		start := time.Now()
-		ans := c.getEmbeddingsAnswer(query, false /* keep conn */, tcp)
-		logStats(c.NumDocs(), start, query, ans)
+    start := time.Now()
+    ans := c.getEmbeddingsAnswer(query, false /* keep conn */, tcp)
+    logStats(c.NumDocs(), start, query, ans)
 
-		dec := c.ReconstructEmbeddingsWithinCluster(ans, i)
+    dec := c.ReconstructEmbeddingsWithinCluster(ans, i)
 
-		checkAnswers(dec, uint(i), p, emb, corp)
-	}
+    checkAnswers(dec, uint(i), p, emb, corp)
+  }
 }
 
 func testRecoverClusterNetworkedDumpState(tcp string, corp *corpus.Corpus) {
-	intermfile := "interm/coordinator_state.log"
-	fmt.Println("Dumping coordinator state to file")
-	DumpStateToFile(k, intermfile)
+  intermfile := "interm/coordinator_state.log"
+  fmt.Println("Dumping coordinator state to file")
+  DumpStateToFile(k, intermfile)
 
-	k.hint = nil
+  k.hint = nil
 
-	fmt.Println("Loading coordinator state from file")
-	LoadStateFromFile(k, intermfile)
-	k.SetupConns()
+  fmt.Println("Loading coordinator state from file")
+  LoadStateFromFile(k, intermfile)
+  k.SetupConns()
 
-	testRecoverClusterNetworked(tcp, true, corp)
+  testRecoverClusterNetworked(tcp, true, corp)
 
-	os.Remove(intermfile)
+  os.Remove(intermfile)
 }
 
 func testEmbeddingsServerDumpState(s *Server, corp *corpus.Corpus) {
-	s2.Clear() // needed for the test to pass
+  s2.Clear() // needed for the test to pass
 
-	intermfile := "interm/server_state.log"
-	DumpStateToFile(s, intermfile)
-	fmt.Println("Dumping server state to file")
+  intermfile := "interm/server_state.log"
+  DumpStateToFile(s, intermfile)
+  fmt.Println("Dumping server state to file")
 
-	LoadStateFromFile(s2, intermfile)
-	testRecoverCluster(s2, corp)
-	os.Remove(intermfile)
+  LoadStateFromFile(s2, intermfile)
+  testRecoverCluster(s2, corp)
+  os.Remove(intermfile)
 }
 
 func TestEmbeddingsFakeData(t *testing.T) {
-	corp := corpus.ReadEmbeddingsCsv(*medcorpus)
-	s.PreprocessEmbeddingsFromCorpus(corp, 25 /* hint size in MB */, conf)
+  corp := corpus.ReadEmbeddingsCsv(*medcorpus)
+  s.PreprocessEmbeddingsFromCorpus(corp, 25 /* hint size in MB */, conf)
+  k.Setup(1, 0, []string{serverTcp}, false, conf)
 
-	// Small delay to ensure servers are ready
-	time.Sleep(2 * time.Second)
+  fmt.Printf("Running embedding queries (over %d-doc fake corpus)\n", corp.GetNumDocs())
 
-	k.Setup(1, 0, []string{serverTcp}, false, conf)
-
-	fmt.Printf("Running embedding queries (over %d-doc fake corpus)\n", corp.GetNumDocs())
-
-	testRecoverSingle(s, corp)
-	testRecoverCluster(s, corp)
-	testEmbeddingsServerDumpState(s, corp)
-	testRecoverClusterNetworked(serverTcp, false, corp)
-	testRecoverClusterNetworked(coordinatorTcp, true, corp)
-	testRecoverClusterNetworkedDumpState(coordinatorTcp, corp)
+  testRecoverSingle(s, corp)
+  testRecoverCluster(s, corp)
+  testEmbeddingsServerDumpState(s, corp)
+  testRecoverClusterNetworked(serverTcp, false, corp)
+  testRecoverClusterNetworked(coordinatorTcp, true, corp)
+  testRecoverClusterNetworkedDumpState(coordinatorTcp, corp)
 }
 
 func TestEmbeddingsRealData(t *testing.T) {
-	f, _ := os.Create("emb_test.prof")
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+  f, _ := os.Create("emb_test.prof")
+  pprof.StartCPUProfile(f)
+  defer pprof.StopCPUProfile()
 
-	corp := corpus.ReadEmbeddingsTxt(0, 10, conf)
-	s.PreprocessEmbeddingsFromCorpus(corp, 25 /* hint size in MB */, conf)
+  corp := corpus.ReadEmbeddingsTxt(0, 10, conf)
+  s.PreprocessEmbeddingsFromCorpus(corp, 25 /* hint size in MB */, conf)
+  k.Setup(1, 0, []string{serverTcp}, false, conf)
 
-	// Small delay to ensure servers are ready
-	time.Sleep(2 * time.Second)
+  fmt.Printf("Running embedding queries (over %d-doc real corpus)\n", corp.GetNumDocs())
 
-	k.Setup(1, 0, []string{serverTcp}, false, conf)
-
-	fmt.Printf("Running embedding queries (over %d-doc real corpus)\n", corp.GetNumDocs())
-
-	testRecoverSingle(s, corp)
-	testRecoverCluster(s, corp)
-	testEmbeddingsServerDumpState(s, corp)
-	testRecoverClusterNetworked(serverTcp, false, corp)
-	testRecoverClusterNetworked(coordinatorTcp, true, corp)
+  testRecoverSingle(s, corp)
+  testRecoverCluster(s, corp)
+  testEmbeddingsServerDumpState(s, corp)
+  testRecoverClusterNetworked(serverTcp, false, corp)
+  testRecoverClusterNetworked(coordinatorTcp, true, corp)
 }
 
 func TestEmbeddingsMultipleServersRealData(t *testing.T) {
-	numServers := 8
-	_, tcps, corp := NewEmbeddingServers(0,
-		numServers,
+  numServers := 8
+  _, tcps, corp := NewEmbeddingServers(0,
+                                       numServers,
 				       10,                // clusters per server
                                        30,                // hint sz
 				       false,             // log
 				       true,              // want corpus
 				       true,              // serve
-		conf)
+				       conf)
 
-	for ns := 1; ns <= numServers; ns *= 2 {
-		c := corpus.Concat(corp[:ns])
-		k.Setup(ns, 0, tcps[:ns], false, conf)
-		fmt.Printf("Running embedding queries (over %d-doc real corpus with %d servers)\n",
-			c.GetNumDocs(), ns)
-		testRecoverClusterNetworked(coordinatorTcp, true, c)
-	}
+  for ns := 1; ns <= numServers; ns *= 2 {
+    c := corpus.Concat(corp[:ns])
+    k.Setup(ns, 0, tcps[:ns], false, conf)
+    fmt.Printf("Running embedding queries (over %d-doc real corpus with %d servers)\n",
+               c.GetNumDocs(), ns)
+    testRecoverClusterNetworked(coordinatorTcp, true, c)
+  }
 }

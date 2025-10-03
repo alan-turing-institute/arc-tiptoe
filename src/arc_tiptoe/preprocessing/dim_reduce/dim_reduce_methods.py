@@ -3,8 +3,9 @@ Dimentionality reduction methods. Includes:
 - PCA
 
 TODO:
-- t-SNE
-- UMAP
+- t-SNE?
+- UMAP?
+- GemmaEmbed dim reduction?
 """
 
 import os
@@ -22,10 +23,20 @@ def _train_pca(train_vecs, new_dim):
 
 
 def run_pca(pca_components, vecs):
-    """Run PCA on the provided vectors using the given components."""
-    return np.clip(np.round(np.matmul(vecs, pca_components) / 10), -16, 15).astype(
-        np.int8
-    )
+    """Run PCA on the provided vectors using the given components. Quantize values."""
+    # Apply PCA
+    transformed = np.matmul(vecs, pca_components)
+
+    # Adaptive scaling to fit within int8 range
+    data_min = np.min(transformed)
+    data_max = np.max(transformed)
+    data_range = max(abs(data_min), abs(data_max))
+
+    # TODO: generalise quantisation
+    scale_factor = 127.0 / data_range
+    quantized = np.clip(np.round(transformed * scale_factor), -127, 127)
+
+    return quantized.astype(np.int8)
 
 
 def adjust_precision(vec):
@@ -85,55 +96,15 @@ def transform_embeddings(
     if logger:
         logger.info("Transforming embeddings")
     out_embeddings = run_pca(pca_components, embeddings)
+    print(
+        "check not zero here 2",
+        np.sum(pca_components),
+        np.sum(embeddings),
+        np.sum(out_embeddings),
+    )
     if logger:
         logger.info("Transformed embeddings")
     if out_file is not None:
         np.save(out_file, out_embeddings)
         return 1
     return out_embeddings
-
-
-def transform_clustered_embeddings(pca_components, in_file, out_file, logger=None):
-    """Transform embeddings using PCA components."""
-    with open(in_file, encoding="utf-8") as f:
-        lines = [line for line in f.readlines() if line.strip()]
-    if len(lines) == 0:
-        with open(out_file, "w", encoding="utf-8") as f:
-            f.write("")
-        return
-    docids, in_embeddings_text, urls = zip(
-        *(line.split(" | ") for line in lines), strict=True
-    )
-    in_embeddings = [
-        [float(i) for i in embed.split(",")] for embed in in_embeddings_text
-    ]
-    if logger:
-        logger.info("Loaded %d embeddings from %s", len(in_embeddings), in_file)
-    if logger:
-        logger.info("in file = %s", in_file)
-    if logger:
-        logger.info(
-            "len of embeddings = %d, len of lines =%d, len of in_embeddings_text = %d",
-            len(in_embeddings),
-            len(lines),
-            len(in_embeddings_text),
-        )
-
-    in_embeddings = [adjust_precision(embed) for embed in in_embeddings]
-    out_embeddings = run_pca(pca_components, in_embeddings)
-
-    # create file to write to
-    if not os.path.exists(os.path.dirname(out_file)):
-        os.makedirs(os.path.dirname(out_file))
-    with open(out_file, "w", encoding="utf-8") as f:
-        # convert to integers
-        lines = []
-        for i in range(len(out_embeddings)):
-            embed_str = ",".join([str(int(ch)) for ch in out_embeddings[i]])
-            line = f"{docids[i]} | {embed_str} | {urls[i].strip()}\n"
-            lines.append(line)
-        if logger:
-            logger.info(
-                "Writing %d transformed embeddings to %s", len(out_embeddings), out_file
-            )
-        f.write("".join(lines))

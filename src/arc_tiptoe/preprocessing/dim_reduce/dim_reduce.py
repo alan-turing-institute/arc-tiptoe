@@ -10,13 +10,13 @@ TODO:
 import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import numpy as np
+from tqdm import tqdm
 
 import arc_tiptoe.preprocessing.dim_reduce.dim_reduce_methods as drm
-
-# from tqdm import tqdm
-
+import arc_tiptoe.preprocessing.utils.utils as utils
 
 # from glob import glob
 
@@ -33,6 +33,7 @@ class DimReducer(ABC):
             handlers=[
                 logging.StreamHandler(),
                 logging.FileHandler(
+                    f"data/{self.config.uuid}/"
                     f"{self.config.data['dataset']}_"
                     f"{self.config.dim_red['dim_red_method']}.log"
                 ),
@@ -49,15 +50,28 @@ class DimReducer(ABC):
             self.embeddings = np.load(f"{self.config.embeddings_path}/embeddings.npy")
             self.num_clusters = np.ceil(np.sqrt(len(self.embeddings))).astype(int)
             self.dim_red_path = self.config.dim_red_path
+            self._gen_directory_structure()
 
-    @abstractmethod
-    def transform_embedding(self, embeddings):
-        """Transform a single embedding using the dimensionality reduction method."""
-        raise NotImplementedError()
+    def _gen_directory_structure(self):
+        """Generate the directory structure"""
+        self.save_path = Path(f"{self.dim_red_path}/").joinpath(
+            f"{self.config.dim_red['dim_red_method']}_" f"{self.dim_red_dimension}"
+        )
+        os.makedirs(self.save_path, exist_ok=True)
 
     @abstractmethod
     def _transform_embeddings(self):
         """Transform a single embedding"""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _transform_clustered_embedding(self, cluster_file, idx):
+        """Transform a single clustered embedding"""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _transform_centroids(self):
+        """Transform the centroids"""
         raise NotImplementedError()
 
     @abstractmethod
@@ -82,13 +96,23 @@ class DimReducePCA(DimReducer):
 
     def __init__(self, config, within_pipeline: bool = False):
         super().__init__(config, within_pipeline)
-        self.logger.info("Initialized PCA dimensionality reduction")
-        self.pca_components = None
-        self.pca_components_path = (
-            f"{self.dim_red_path}/"
-            f"{self.config.dim_red['dim_red_method']}_"
-            f"{self.dim_red_dimension}.npy"
-        )
+        if not self.config.dim_red_done:
+            self.logger.info("Initialized PCA dimensionality reduction")
+            self.pca_components = None
+            self.pca_components_path = (
+                f"{self.dim_red_path}/"
+                f"{self.config.dim_red['dim_red_method']}_"
+                f"{self.dim_red_dimension}.npy"
+            )
+        else:
+            self._return_config()
+
+    def _return_config(self):
+        """Return the config if within pipeline"""
+        if self.within_pipeline:
+            return self.config
+
+        return 1
 
     def _train_pca(self):
         """Train pca and save the componenents path"""
@@ -103,41 +127,74 @@ class DimReducePCA(DimReducer):
     def _transform_embeddings(self):
         """Transform the embeddings pre-clustering"""
         self.logger.info("Transform embeddings using PCA components")
-        output_file = (
-            f"{self.dim_red_path}/"
-            f"{self.config.dim_red['dim_red_method']}_"
-            f"{self.dim_red_dimension}/embeddings.py"
-        )
+        output_file = f"{self.save_path}/embeddings.npy"
         drm.transform_embeddings(self.pca_components, self.embeddings, output_file)
 
-    def _transform_clustered_embeddings(self, idx):
+    def _transform_clustered_embedding(self, cluster_file, idx):
         """Transform a single embedding using PCA components."""
-        input_file = f"{self.config.clustering_path}/assignments/cluster_{idx}.txt"
-        output_file = (
-            f"{self.dim_red_path}/"
-            f"{self.config.dim_red['dim_red_method']}_"
-            f"{self.dim_red_dimension}/cluster_{idx}.txt"
+        cluster_contents = utils.parse_file(cluster_file)
+        if len(cluster_contents) == 0:
+            return
+        cluster_embeddings = np.array(
+            [np.fromstring(content[1], sep=",") for content in cluster_contents]
         )
+        reduced_embeddings = drm.run_pca(self.pca_components, cluster_embeddings)
+        print(
+            "check not zero here 4",
+            np.sum(cluster_embeddings),
+            np.sum(reduced_embeddings),
+        )
+        # Save the reduced embeddings back to the cluster file
+        with open(
+            f"{self.save_path}/clusters/cluster_{idx}.txt",
+            "w",
+            encoding="utf-8",
+        ) as f:
+            for i, content in enumerate(cluster_contents):
+                embedding_str = ",".join(map(str, reduced_embeddings[i]))
+                f.write(f"{content[0]} | {embedding_str} | {content[2]}\n")
 
-        if not os.path.exists(output_file):
-            self.logger.info("Transforming embeddings for cluster %d", idx)
-            drm.transform_embeddings(self.pca_components, input_file, output_file)
-            self.logger.info("Finished processing cluster %d", idx)
-        else:
-            self.logger.info("Output file for cluster %d already exists, skipping", idx)
+    def _transform_centroids(self):
+        """Transform the centroids using PCA components."""
+        centroids = np.load(
+            f"{self.config.clustering_path}/processing/centroids/final_centroids.npy"
+        )
+        print("check not zero here 3", np.sum(centroids))
+        reduced_centroids = drm.run_pca(self.pca_components, centroids)
+        np.savetxt(f"{self.save_path}/centroids.txt", reduced_centroids)
 
     def _reduce_dimensions(self):
         """Reduce the dimensions of the embeddings using PCA."""
-        self.logger.info("Train PCA compenents for dim reduction")
-
+        self.logger.info("Train PCA components for dim reduction")
         # Transform the embeddings using the PCA components
-        self._transform_embeddings()
-
-    def transform_embedding(self, embeddings):
-        """Transform a single embedding using PCA components."""
         if self.pca_components is None:
             if os.path.exists(self.pca_components_path):
                 self.pca_components = np.load(self.pca_components_path)
+                self.logger.info(
+                    "Loaded existing PCA components from %s", self.pca_components_path
+                )
             else:
                 self._train_pca()
-        return drm.run_pca(self.pca_components, embeddings)
+        self._transform_embeddings()
+        if self.config.cluster["apply_clustering"]:
+            if self.config.dim_red["dim_red_before_clustering"]:
+                self.logger.info("Dimensionality reduction done before clustering")
+                return 1
+            self.logger.info("Transform clustered embeddings using PCA components")
+            self.logger.info("Processing clustered embeddings")
+            os.makedirs(f"{self.save_path}/clusters", exist_ok=True)
+            cluster_files = [
+                f"{self.config.clustering_path}/processing/"
+                f"processed_clusters/cluster_{i}.txt"
+                for i in range(self.num_clusters)
+            ]
+            for idx, cluster_file in tqdm(
+                enumerate(cluster_files),
+                desc="Processing clustered embeddings",
+                unit="cluster",
+            ):
+                self._transform_clustered_embedding(cluster_file, idx)
+            self._transform_centroids()
+        self.logger.info("Dimensionality reduction completed")
+
+        return 1
