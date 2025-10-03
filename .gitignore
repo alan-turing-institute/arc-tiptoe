@@ -171,6 +171,17 @@ configs/
 .DS_Store
 .vscode/
 build/
+.venv*
+.temp
+results/*
+models/*
+config/*
+
+# Python egg files
+*.egg
+*.egg-info/
+*.egg-info
+.eggs/
 msmarco_data/
 multi_cluster_results/
 new_go/
