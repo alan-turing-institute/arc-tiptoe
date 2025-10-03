@@ -174,8 +174,17 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, in io.WriteCloser, 
 	io.WriteString(in, text+"\n")
 	if err := json.NewDecoder(out).Decode(&query); err != nil {
 		log.Printf("Error in python script processing query: %s", err)
+		// data, e2 := io.ReadAll(out)
+		// if e2 != nil {
+		// 	fmt.Println("Also error reading remaining data from stdout:", e2)
+		// } else {
+		// 	fmt.Println("Remaining data from stdout:", string(data))
+		// }
 		panic(err)
 	}
+
+	// print the query output for debugging
+	fmt.Printf("Query clusters: %v\n", query.TopKClusterIndices)
 
 	// Check enough clusters are returned
 	if len(query.TopKClusterIndices) < topKCluster {

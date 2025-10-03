@@ -221,13 +221,16 @@ class Clusterer(ABC):
             for i in range(self.num_clusters)
         ]
         new_centroids = []
+        total_elems = 0
         for idx, cluster_file in tqdm(
             enumerate(cluster_files), desc="Processing clusters", unit="cluster"
         ):
-            processing = self._process_cluster(cluster_file, idx)
+            processing = self._process_cluster(cluster_file, idx, total_elems)
             if processing is None:
                 continue
-            new_cluster_centroids = processing
+            processed_centroids, sub_elems_count = processing
+            new_cluster_centroids = processed_centroids
+            total_elems += sub_elems_count
             if len(new_centroids) > 0:
                 new_centroids = np.vstack((new_centroids, new_cluster_centroids))
             else:
@@ -235,7 +238,7 @@ class Clusterer(ABC):
 
         np.save(f"{self.processing_path}/centroids/final_centroids.npy", new_centroids)
 
-    def _process_cluster(self, cluster_file, cluster_idx):
+    def _process_cluster(self, cluster_file, cluster_idx, total_elem_count):
         """Process a single cluser"""
         self.logger.info("**** PROCESS CLUSTER *****")
         self.logger.info("Processing cluster %d", cluster_idx)
@@ -251,9 +254,15 @@ class Clusterer(ABC):
             cluster_idx,
         )
 
-        for sub_cluster in tqdm(assignment_dict, desc="Writing sub clusters"):
+        sub_elems_count = 0
+        for idx, sub_cluster in tqdm(
+            enumerate(assignment_dict), desc="Writing sub clusters"
+        ):
+            sub_elems_count += 1
+            sub_cluster_idx = total_elem_count + idx
             with open(
-                f"{self.processing_path}/processed_clusters/cluster_{cluster_idx}.txt",
+                f"{self.processing_path}/processed_clusters/"
+                f"cluster_{sub_cluster_idx}.txt",
                 "a",
                 encoding="utf-8",
             ) as f:
@@ -265,7 +274,7 @@ class Clusterer(ABC):
                         self.logger.info("%s", len(elem))
         self.logger.info("Finished write")
 
-        return new_centroids
+        return new_centroids, sub_elems_count
 
     def _sub_clustering(self, embedded_cluster_contents):
         """Sub-cluster the contents of a cluster to create bundles."""
