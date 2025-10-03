@@ -46,7 +46,7 @@ def distilbert_preprocess(text: str, max_length: int = 512) -> str:
     return tokenizer.decode(tokens["input_ids"][0], skip_special_tokens=True)
 
 
-def modernbert_preprocess(text: str) -> str:
+def modernbert_preprocess(text: str, **kwargs) -> str:
     """
     For the modernbert embed model this the text needs to be prepended with,
     'search_document: '
@@ -54,7 +54,7 @@ def modernbert_preprocess(text: str) -> str:
     return f"search_document: {text}"
 
 
-def embedding_gemma_preprocess(text: str) -> str:
+def embedding_gemma_preprocess(text: str, **kwargs) -> str:
     """
     For the gemma embedding model the text needs to be prepended with,
     'task: clustering | query: '

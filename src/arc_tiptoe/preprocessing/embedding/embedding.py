@@ -55,8 +55,7 @@ class Embedder(ABC):
             self.model = self.load_model(self.config.embed_model, self.device)
             if self.config.embed_pars["preprocessing_required"]:
                 print(
-                    f"Preprocessing documents to truncated at "
-                    f"{self.config.embed_pars['sequence_length']}"
+                    f"Preprocessing documents"
                 )
 
     def _return_config_in_pipeline(self):
@@ -134,7 +133,13 @@ class Embedder(ABC):
         hf_dataset = self.dataset
         if self.config.embed_pars["preprocessing_required"]:
             hf_dataset = self.dataset.map(
-                lambda x: {"body": self._preprocess_data(x["body"])}, batch_size=32
+                lambda x: {
+                    "body": self._preprocess_data(
+                        x["body"], 
+                        max_length=self.config.embed_pars["sequence_length"]
+                        )
+                    }, 
+                batch_size=32
             )
 
         embeddings = np.array(
