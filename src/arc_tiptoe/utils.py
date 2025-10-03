@@ -2,6 +2,19 @@ import json
 import logging
 import os
 
+DATASET_IR_MAP = {
+    # IR Datasets name : filesystem-safe name
+    "msmarco-document/trec-dl-2019": "msmarco-document_trec-dl-2019",
+    "msmarco-document/dev": "msmarco-document_dev",
+    "wikir_en1k_test": "wikir/en1k/test",
+}
+
+DATASET_SAVE_MAP = {
+    # Filesystem-safe name : IR Datasets name
+    value: key
+    for key, value in DATASET_IR_MAP.items()
+}
+
 
 def save_to_json(results: dict, save_path: str, **json_kwargs) -> str:
     """Save outputs to a JSON file.

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 
 def get_relevant_docs(
-    doc_dict: dict[str, int], target_relevance_level: int | None
+    doc_dict: dict[str, int], target_relevance_level: int | None = None
 ) -> list[str]:
     """
     Get relevant document IDs for a given query ID.

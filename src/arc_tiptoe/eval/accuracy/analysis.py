@@ -116,8 +116,8 @@ def _evaluate(
     query_search_results: dict,
     qrels: dict,
     relevant_document_ids: list,
+    top_k_docs: int,
     target_relevance_level: int = 3,
-    top_k_docs: int = 100,
 ) -> dict:
     """
     Evaluate retrieval results for a single query.
@@ -170,8 +170,8 @@ def evaluate_queries(
     query_list,
     search_results,
     top_k_docs,
+    target_relevance_level,
     print_results=False,
-    target_relevance_level=None,
 ):
     """
     Evaluate retrieval results for a list of queries.
@@ -179,7 +179,7 @@ def evaluate_queries(
     Args:
         query_list: List of queries with their IDs and relevance judgments.
         search_results: Dictionary of search results keyed by query ID.
-        k: Number of top results to consider for evaluation.
+        top_k_docs: Number of top results to consider for evaluation.
         print_results: Whether to print results. Defaults to False.
         target_relevance_level: The relevance level to evaluate. Defaults to None.
 
@@ -190,9 +190,9 @@ def evaluate_queries(
     for qid, _, _, qrels in tqdm(query_list, desc="Query No."):
         query_results: dict[str, float] = {}
         query_search_results = search_results[qid]
-        relevant_document_ids = get_relevant_docs(
-            qrels, target_relevance_level=target_relevance_level
-        )
+        # for these metrics we consider all relevant docs (rel>0)
+        # don't need to pass target_relevance_level here
+        relevant_document_ids = get_relevant_docs(qrels)
 
         query_results.update(
             _evaluate(
