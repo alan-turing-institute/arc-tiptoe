@@ -50,6 +50,7 @@ class QueryProcessor:
         print(f"Model: {self.model_name}", file=sys.stderr)
         print(f"Dimensions: {self.original_dim} -> {self.reduced_dim}", file=sys.stderr)
         print(f"Clusters: {self.num_clusters}", file=sys.stderr)
+        print(f"search_top_k: {self.search_top_k}", file=sys.stderr)
 
     def _is_search_config(self, config_path: str) -> bool:
         """Check if this is a search config or preprocessing config"""
@@ -202,10 +203,17 @@ class QueryProcessor:
         if top_k_clusters is None:
             top_k_clusters = self.search_top_k
 
+        print(
+            f"Processing query: '{query}' with top_k_clusters={top_k_clusters}",
+            file=sys.stderr,
+        )
+
         # Generate embedding using same model as preprocessing
+        print("Generating embedding...", file=sys.stderr)
         embedding = self.model.encode_query([query], convert_to_numpy=True)[0]
 
         # Apply dim reduction if configured
+        print("Applying PCA if configured...", file=sys.stderr)
         if self.pca_components is not None:
             embedding_reduced = np.matmul(embedding, self.pca_components)
         else:
@@ -234,6 +242,7 @@ class QueryProcessor:
     def _find_nearest_clusters(self, embedding: np.ndarray, top_k: int) -> List[int]:
         """Find the top-k nearest clusters fro a given embedding"""
         if self.cluster_index is None:
+            print("No cluster index available", file=sys.stderr)
             return [0]
 
         query_embedding = embedding.reshape(1, -1).astype("float32")
@@ -243,12 +252,19 @@ class QueryProcessor:
             query_embedding, min(top_k, self.num_clusters)
         )
 
+        print("Raw cluster indices:", indices, file=sys.stderr)
+
         # return valid_clusters
         valid_clusters = []
         for i in range(len(indices[0])):
             cluster_id = indices[0][i]
             if 0 <= cluster_id < self.num_clusters:
                 valid_clusters.append(int(cluster_id))
+
+        if valid_clusters:
+            print(f"Nearest clusters: {valid_clusters}", file=sys.stderr)
+        else:
+            print("No valid clusters found, defaulting to [0]", file=sys.stderr)
 
         return valid_clusters if valid_clusters else [0]
 
@@ -270,8 +286,6 @@ def main():
 
     try:
         processor = QueryProcessor(config_path, preamble)
-
-        # print("Processor loaded", file=sys.stderr)
 
         for line in sys.stdin:
             query = line.strip()
