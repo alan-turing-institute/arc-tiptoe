@@ -65,7 +65,7 @@ class DimReducer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def _transform_clustered_embedding(self, cluster_file, idx):
+    def _transform_clustered_embedding(self, cluster_file):
         """Transform a single clustered embedding"""
         raise NotImplementedError()
 
@@ -130,7 +130,7 @@ class DimReducePCA(DimReducer):
         output_file = f"{self.save_path}/embeddings.npy"
         drm.transform_embeddings(self.pca_components, self.embeddings, output_file)
 
-    def _transform_clustered_embedding(self, cluster_file, idx):
+    def _transform_clustered_embedding(self, cluster_file):
         """Transform a single embedding using PCA components."""
         cluster_contents = utils.parse_file(cluster_file)
         if len(cluster_contents) == 0:
@@ -146,7 +146,7 @@ class DimReducePCA(DimReducer):
         )
         # Save the reduced embeddings back to the cluster file
         with open(
-            f"{self.save_path}/clusters/cluster_{idx}.txt",
+            f"{self.save_path}/clusters/{cluster_file.name}",
             "w",
             encoding="utf-8",
         ) as f:
@@ -183,17 +183,15 @@ class DimReducePCA(DimReducer):
             self.logger.info("Transform clustered embeddings using PCA components")
             self.logger.info("Processing clustered embeddings")
             os.makedirs(f"{self.save_path}/clusters", exist_ok=True)
-            cluster_files = [
-                f"{self.config.clustering_path}/processing/"
-                f"processed_clusters/cluster_{i}.txt"
-                for i in range(self.num_clusters)
-            ]
-            for idx, cluster_file in tqdm(
-                enumerate(cluster_files),
+            cluster_files = Path(
+                f"{self.config.clustering_path}/processing/processed_clusters/"
+            ).glob("cluster_*.txt")
+            for cluster_file in tqdm(
+                cluster_files,
                 desc="Processing clustered embeddings",
                 unit="cluster",
             ):
-                self._transform_clustered_embedding(cluster_file, idx)
+                self._transform_clustered_embedding(cluster_file)
             self._transform_centroids()
         self.logger.info("Dimensionality reduction completed")
 

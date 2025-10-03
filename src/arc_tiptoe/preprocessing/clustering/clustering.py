@@ -4,7 +4,6 @@ Clustering class for document embeddings.
 
 import logging
 import os
-import zlib
 from abc import ABC, abstractmethod
 
 import faiss
@@ -99,6 +98,7 @@ class Clusterer(ABC):
         self.logger.info("Number of clusters: %d", self.num_clusters)
         self._cluster_and_assign()
         self.config.clustering_done = True
+        self.config.cluster["num_clusters"] = self.num_clusters
         self.config.save_config()
         if self.within_pipeline:
             return self.config
@@ -221,21 +221,28 @@ class Clusterer(ABC):
             for i in range(self.num_clusters)
         ]
         new_centroids = []
+        total_elems = 0
         for idx, cluster_file in tqdm(
             enumerate(cluster_files), desc="Processing clusters", unit="cluster"
         ):
-            processing = self._process_cluster(cluster_file, idx)
+            processing = self._process_cluster(cluster_file, idx, total_elems)
             if processing is None:
                 continue
-            new_cluster_centroids = processing
+            processed_centroids, sub_elems_count = processing
+            new_cluster_centroids = processed_centroids
+            total_elems += sub_elems_count
             if len(new_centroids) > 0:
                 new_centroids = np.vstack((new_centroids, new_cluster_centroids))
             else:
                 new_centroids = new_cluster_centroids
 
+        # Update the final number of clusters
+        self.num_clusters = len(new_centroids)
+        self.logger.info("Final number of clusters: %d", self.num_clusters)
+        self.logger.info("Writing final centroids to file")
         np.save(f"{self.processing_path}/centroids/final_centroids.npy", new_centroids)
 
-    def _process_cluster(self, cluster_file, cluster_idx):
+    def _process_cluster(self, cluster_file, cluster_idx, total_elem_count):
         """Process a single cluser"""
         self.logger.info("**** PROCESS CLUSTER *****")
         self.logger.info("Processing cluster %d", cluster_idx)
@@ -251,9 +258,21 @@ class Clusterer(ABC):
             cluster_idx,
         )
 
-        for sub_cluster in tqdm(assignment_dict, desc="Writing sub clusters"):
+        sub_elems_count = 0
+        for idx, sub_cluster in tqdm(
+            enumerate(assignment_dict), desc="Writing sub clusters"
+        ):
+            # Skip empty clusters
+            if assignment_dict[sub_cluster] is None:
+                continue
+            if len(assignment_dict[sub_cluster]) == 0:
+                continue
+
+            sub_elems_count += 1
+            sub_cluster_idx = total_elem_count + idx
             with open(
-                f"{self.processing_path}/processed_clusters/cluster_{cluster_idx}.txt",
+                f"{self.processing_path}/processed_clusters/"
+                f"cluster_{sub_cluster_idx}.txt",
                 "a",
                 encoding="utf-8",
             ) as f:
@@ -265,7 +284,7 @@ class Clusterer(ABC):
                         self.logger.info("%s", len(elem))
         self.logger.info("Finished write")
 
-        return new_centroids
+        return new_centroids, sub_elems_count
 
     def _sub_clustering(self, embedded_cluster_contents):
         """Sub-cluster the contents of a cluster to create bundles."""
@@ -292,7 +311,7 @@ class Clusterer(ABC):
         # create assignment dict
         assignment_dict = {}
         for idx, assignment in tqdm(
-            enumerate(assignments), desc="Assigning to bundles"
+            enumerate(assignments), desc="Assigning to subclusters"
         ):
             cluster_id = assignment[0]
             if cluster_id not in assignment_dict:
@@ -300,7 +319,13 @@ class Clusterer(ABC):
             else:
                 assignment_dict[cluster_id].append(embedded_cluster_contents[idx])
 
-        # If all documents are in the same cluster, divide them arbitrarily into bundles
+        # print(f"length of assignments dict {len(assignment_dict)}")
+        # print(f"length of new centroids {len(new_centroids)}")
+        # print(f"assignment dict keys {list(assignment_dict.keys())}")
+        # raise ValueError("Debugging")
+
+        # If all documents are in the same cluster, divide them arbitrarily into
+        # subclusters
         if len(assignment_dict) == 1 and num_sub_clusters > 1:
             self.logger.info(
                 "All documents are in the same cluster, dividing arbitrarily"
@@ -317,8 +342,6 @@ class Clusterer(ABC):
                     embedded_cluster_contents[j]
                     for j in range(i * self.avg_sub_cluster_size, upper_bound)
                 ]
-
-            return new_centroids, assignment_dict
 
         # If documents are not the same, proceed with further processing
         self.logger.info(
@@ -345,6 +368,7 @@ class Clusterer(ABC):
                         assignment_dict[sub_cluster + offset] = sub_assigmnet_dict[
                             sub_cluster
                         ]
+
         return new_centroids, assignment_dict
 
     @abstractmethod
