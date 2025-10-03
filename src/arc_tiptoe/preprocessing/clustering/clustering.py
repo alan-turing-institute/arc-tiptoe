@@ -5,7 +5,6 @@ Clustering class for document embeddings.
 import logging
 import os
 from abc import ABC, abstractmethod
-from pprint import pprint
 
 import faiss
 import numpy as np
