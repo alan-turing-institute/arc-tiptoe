@@ -55,7 +55,6 @@ class Clusterer(ABC):
             self.num_clusters = int(np.ceil(np.sqrt(len(self.embeddings))))
             self.config.cluster["num_clusters"] = self.num_clusters
             self.avg_sub_cluster_size = self.config.cluster["avg_sub_cluster_size"]
-            self.urls_per_bundle = self.config.cluster["urls_per_bundle"]
             self.max_size = self.config.cluster["max_size"]
             self.MULTI_ASSIGN = self.config.cluster.get("MULTI_ASSIGN", 2)
 
