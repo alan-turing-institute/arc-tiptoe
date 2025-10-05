@@ -288,8 +288,8 @@ class Clusterer(ABC):
             if len(assignment_dict[sub_cluster]) == 0:
                 continue
 
+            sub_cluster_idx = total_elem_count + sub_elems_count
             sub_elems_count += 1
-            sub_cluster_idx = total_elem_count + sub_elems_count + 1
             with open(
                 f"{self.processing_path}/processed_clusters/"
                 f"cluster_{sub_cluster_idx}.txt",
