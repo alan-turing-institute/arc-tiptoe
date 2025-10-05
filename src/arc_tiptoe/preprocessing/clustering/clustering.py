@@ -249,6 +249,27 @@ class Clusterer(ABC):
         self.logger.info("LEN = %d", len(cluster_contents))
         if len(cluster_contents) == 0:
             return None
+        if len(cluster_contents) <= self.max_size:
+            self.logger.info("Cluster size within limit, copying to processed")
+            with open(
+                f"{self.processing_path}/processed_clusters/cluster_{total_elem_count + 1}.txt",
+                "w",
+                encoding="utf-8",
+            ) as f:
+                for content in cluster_contents:
+                    if len(content) == 3:
+                        f.write(f"{content[0]} | {content[1]} | {content[2]}\n")
+                    else:
+                        self.logger.info("ERORR: content != 3")
+                        self.logger.info("%s", len(content))
+            cluster_embeddings = np.loadtxt(
+                [item[1] for item in cluster_contents], delimiter=","
+            )
+            if cluster_embeddings.ndim == 1:
+                cluster_embeddings = cluster_embeddings.reshape(1, -1)
+            return np.array([np.mean(cluster_embeddings, axis=0)]), 1
+        
+        self.logger.info("Cluster size exceeds limit, sub-clustering")
         new_centroids, assignment_dict = self._sub_clustering(cluster_contents)
 
         self.logger.info(
@@ -258,7 +279,7 @@ class Clusterer(ABC):
         )
 
         sub_elems_count = 0
-        for idx, sub_cluster in tqdm(
+        for _, sub_cluster in tqdm(
             enumerate(assignment_dict), desc="Writing sub clusters"
         ):
             # Skip empty clusters
