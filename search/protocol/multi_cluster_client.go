@@ -35,6 +35,12 @@ type queryClusterResults struct {
 	perf         Perf
 }
 
+type userQuery struct {
+	ClusterIndex       uint64
+	Emb                []int8
+	TopKClusterIndices []uint64
+}
+
 // MultiClusterSearchClient runs an interactive multi-cluster search client
 // connecting to the given coordinator address, using the given config
 // If verbose is true, prints out detailed step-by-step information
@@ -48,9 +54,31 @@ func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbo
 
 		var allQueryResults []queryClusterResults
 
+		// Embed query for multi-cluster search
+		color.Cyan("Embedding query and selecting top %d clusters to search over", conf.GetSearchTopK())
+
+		// set up embedding process
+		in, out := embeddings.SetupEmbeddingProcess(conf.GetNumClusters(), conf)
+
+		// Declare the query data type
+		query := new(userQuery)
+
+		// send query to embed process and get back embedding + top clusters to search
+		io.WriteString(in, text+"\n")
+		if err := json.NewDecoder(out).Decode(&query); err != nil {
+			log.Printf("Error in python script processing query: %s", err)
+			panic(err)
+		}
+
+		// Check enough clusters are returned
+		if len(query.TopKClusterIndices) < conf.GetSearchTopK() {
+			panic(fmt.Sprintf("Expected at least %d clusters, got %d", conf.GetSearchTopK(), len(query.TopKClusterIndices)))
+		}
+
 		for topKCluster := 1; topKCluster <= conf.GetSearchTopK(); topKCluster++ {
 			color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
-			singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, topKCluster, text)
+			searchClusterIndex := query.TopKClusterIndices[topKCluster-1]
+			singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, query.Emb, searchClusterIndex, text)
 			allQueryResults = append(allQueryResults, singleClusterQueryResult)
 		}
 
@@ -133,7 +161,7 @@ func parseResultsFromAllClusters(allQueryResults []queryClusterResults, numSearc
 
 }
 
-func runSingleClusterSearch(coordinatorAddr string, conf *config.Config, verbose bool, topKCluster int, text string) queryClusterResults {
+func runSingleClusterSearch(coordinatorAddr string, conf *config.Config, verbose bool, queryEmb []int8, searchClusterIndex uint64, text string) queryClusterResults {
 	color.Yellow("Setting up client...")
 
 	client := NewClient(true /* use coordinator */)
@@ -142,18 +170,16 @@ func runSingleClusterSearch(coordinatorAddr string, conf *config.Config, verbose
 	client.Setup(hint)
 	logHintSize(hint)
 
-	in, out := embeddings.SetupEmbeddingProcess(client.NumClusters(), conf)
-
 	client.stepCount = 1
 	client.printStep("Running client preprocessing")
 	perf := client.preprocessRound(coordinatorAddr, true /* verbose */, true /* keep conn */)
 
-	queryResults := client.singleClusterSearchRunRound(perf, in, out, text, coordinatorAddr, verbose, true /* keep conn */, conf.GetNumSearchResultsPerCluster(), topKCluster)
+	queryResults := client.singleClusterSearchRunRound(perf, queryEmb, coordinatorAddr, verbose, true /* keep conn */, conf.GetNumSearchResultsPerCluster(), searchClusterIndex, text)
 
 	return queryResults
 }
 
-func (client *Client) singleClusterSearchRunRound(perf Perf, in io.WriteCloser, out io.ReadCloser, text, coordinatorAddr string, verbose, keepConn bool, numSearchResultsPerCluster int, topKCluster int) queryClusterResults {
+func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, coordinatorAddr string, verbose, keepConn bool, numSearchResultsPerCluster int, ClusterIndex uint64, text string) queryClusterResults {
 	y := color.New(color.FgYellow, color.Bold)
 	fmt.Printf("Executing query \"%s\"\n", y.Sprintf(text))
 
@@ -163,40 +189,9 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, in io.WriteCloser, 
 		client.printStep("Building embedding query")
 	}
 
-	// Declare the query data type
-	var query struct {
-		TopClusterIndex    uint64
-		Emb                []int8
-		TopKClusterIndices []uint64
-	}
-
-	// send query to embed process and get back embedding + top clusters to search
-	io.WriteString(in, text+"\n")
-	if err := json.NewDecoder(out).Decode(&query); err != nil {
-		log.Printf("Error in python script processing query: %s", err)
-		// data, e2 := io.ReadAll(out)
-		// if e2 != nil {
-		// 	fmt.Println("Also error reading remaining data from stdout:", e2)
-		// } else {
-		// 	fmt.Println("Remaining data from stdout:", string(data))
-		// }
-		panic(err)
-	}
-
-	// Check enough clusters are returned
-	if len(query.TopKClusterIndices) < topKCluster {
-		panic(fmt.Sprintf("Expected at least %d clusters, got %d", topKCluster, len(query.TopKClusterIndices)))
-	}
-	var ClusterIndex uint64 = query.TopKClusterIndices[topKCluster-1]
-
 	// Check clusters are in range
 	if ClusterIndex >= uint64(client.NumClusters()) {
 		panic("One of the returned clusters indices is out of range")
-	}
-
-	// Run tiptoe search and PIR over each cluster individually
-	if verbose {
-		client.printStep(fmt.Sprintf("Searching over %d clusters: %d", len(query.TopKClusterIndices), query.TopKClusterIndices))
 	}
 
 	if verbose {
@@ -204,7 +199,7 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, in io.WriteCloser, 
 	}
 
 	// Embed the query for url server search
-	embQuery := client.QueryEmbeddings(query.Emb, ClusterIndex)
+	embQuery := client.QueryEmbeddings(queryEmb, ClusterIndex)
 	perf.clientSetup = time.Since(start).Seconds()
 
 	// Send embeddings query to server
