@@ -43,6 +43,10 @@ func (c *Config) GetSearchTopK() int {
 	return c.searchTopK
 }
 
+func (c *Config) GetNumClusters() int {
+	return c.numClusters
+}
+
 func (c *Config) PREAMBLE() string {
 	return c.preamble
 }

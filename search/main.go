@@ -52,27 +52,27 @@ func multiClusterClient(coordinatorIP string, conf *config.Config) {
 	protocol.MultiClusterSearchClient(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, true /* verbose */)
 }
 
-func multiClusterExperiment(coordinatorIP string, conf *config.Config) {
-	args := flag.Args()
-	var queryText string
-	fmt.Printf("Is it reaching here?")
-	if len(args) >= 2 {
-		queryText = args[1]
-	}
-	if len(args) >= 3 {
-		coordinatorIP = args[2]
-	}
+// func multiClusterExperiment(coordinatorIP string, conf *config.Config) {
+// 	args := flag.Args()
+// 	var queryText string
+// 	fmt.Printf("Is it reaching here?")
+// 	if len(args) >= 2 {
+// 		queryText = args[1]
+// 	}
+// 	if len(args) >= 3 {
+// 		coordinatorIP = args[2]
+// 	}
 
-	// // Run with test query
-	// col := color.New(color.FgYellow).Add(color.Bold)
-	// col.Printf("Enter test query: ")
-	// in := bufio.NewScanner(os.Stdin)
-	// in.Scan()
-	// text := in.Text()
-	// fmt.Printf("\n\n")
+// 	// // Run with test query
+// 	// col := color.New(color.FgYellow).Add(color.Bold)
+// 	// col.Printf("Enter test query: ")
+// 	// in := bufio.NewScanner(os.Stdin)
+// 	// in.Scan()
+// 	// text := in.Text()
+// 	// fmt.Printf("\n\n")
 
-	protocol.MultiClusterSearchExperiment(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, queryText, false /* verbose */)
-}
+// 	protocol.MultiClusterSearchExperiment(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, queryText, false /* verbose */)
+// }
 
 func client_latency(coordinatorIP string, conf *config.Config) {
 	debug.SetMemoryLimit(20*2 ^ (30))
@@ -347,8 +347,8 @@ func main() {
 		client(coordinatorIP, conf)
 	case "multi-cluster-client": // New multi-cluster client
 		multiClusterClient(coordinatorIP, conf)
-	case "multi-cluster-experiment": // New multi-cluster experiment client
-		multiClusterExperiment(coordinatorIP, conf)
+	// case "multi-cluster-experiment": // New multi-cluster experiment client
+	// 	multiClusterExperiment(coordinatorIP, conf)
 	case "client-latency":
 		client_latency(coordinatorIP, conf)
 	case "client-tput-embed":
