@@ -8,10 +8,12 @@ from ir_datasets import load
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
+from arc_tiptoe.utils import get_device
+
 
 def main(config: dict):
     model_name = config["embed_model"]
-    model = SentenceTransformer(model_name, device="mps")
+    model = SentenceTransformer(model_name, device=get_device())
     dataset = load(config["data"]["dataset"])
 
     output_dir = (
@@ -53,4 +55,5 @@ if __name__ == "__main__":
     with open(args.config_path) as f:
         config = json.load(f)
 
+    main(config)
     main(config)
