@@ -15,38 +15,33 @@ def get_cluster_fpaths(data_dir):
     return glob.glob(f"{data_dir}/clusters/cluster_*.txt")
 
 
+def load_quantized_cluster(cluster_fpath: str) -> tuple[np.ndarray, np.ndarray]:
+    lines = parse_file(cluster_fpath)
+    indices, quantized_embs_str, _ = zip(*lines, strict=False)
+    quantized_embs = [list(map(int, emb.split(","))) for emb in quantized_embs_str]
+    return np.array(indices, dtype=np.int64), np.array(quantized_embs, dtype=np.int8)
+
+
+def construct_non_quantized_cluster(
+    original_embs: np.ndarray, indices: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    return indices, original_embs[indices]
+
+
 def main(data_dir: str):
     orig_embs = get_orig_embeddings(data_dir)
     print(f"Shape of original embeddings: {orig_embs.shape}")
 
-    # TODO more efficient to do a pre-allocation
-    all_lines: list[tuple[str]] = []
-
     cluster_fpaths = get_cluster_fpaths(data_dir)
 
-    for cluster_fpath in cluster_fpaths:
-        lines = parse_file(cluster_fpath)
-        lines = [
-            (*line, cluster_fpath) for line in lines
-        ]  # convert to tuples for hashing and add fpath for debugging
-        all_lines.extend(lines)
+    quantized_clusters = [load_quantized_cluster(fpath) for fpath in cluster_fpaths]
 
-    all_lines = sorted(set(all_lines), key=lambda row: row[0])
+    nonquantized_clusters = [
+        construct_non_quantized_cluster(orig_embs, indices)
+        for indices, _ in quantized_clusters
+    ]
 
-    # TODO remove:
-    print("example overlaps that are breaking this right now:")
-    print(all_lines[2])
-    print(all_lines[3])
-
-    # TODO this fails at the moment
-    assert len(all_lines) == orig_embs.shape[0], (
-        f"Number of unique lines in clusters ({len(all_lines)}) does not match "
-        f"number of original embeddings ({orig_embs.shape[0]})"
-    )
-
-    inds, quantized_embs, _ = zip(*all_lines, strict=True)
-
-    print(f"Number of quantized embeddings: {len(quantized_embs)}")
+    print("now we need to do some searching")
 
 
 if __name__ == "__main__":
