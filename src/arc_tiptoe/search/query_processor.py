@@ -21,7 +21,7 @@ class QueryProcessor:
     Reads configuration from preprocessing pipeline to ensure consistency.
     """
 
-    def __init__(self, config_path: str, preamble: str = None):
+    def __init__(self, config_path: str, preamble: str | None = None):
         """
         Initialize query processor with preprocessing config.
 
