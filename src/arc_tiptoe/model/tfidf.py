@@ -9,15 +9,30 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from arc_tiptoe.constants import MODELS_DIR
 
-EQUIV_DATASETS = {
-    "msmarco-document_trec-dl-2019": "msmarco-document_dev",
-    "msmarco-document_dev": "msmarco-document_trec-dl-2019",
-}
+EQUIV_DATASETS = [
+    [
+        "msmarco-document_trec-dl-2019",
+        "msmarco-document_dev",
+        "msmarco-document_eval",
+    ],
+    [
+        "wikir_en78k_test",
+        "wikir_en78k_dev",
+    ],
+]
 
 
 class TFIDFModel(NamedTuple):
     vectorizer: TfidfVectorizer  # Set default value
     tfidf_matrix: spmatrix
+
+
+def find_equiv_datasets(dataset_name):
+    """Find equivalent datasets for a given dataset name."""
+    for group in EQUIV_DATASETS:
+        if dataset_name in group:
+            return [d for d in group if d != dataset_name]
+    return None
 
 
 def train_tfidf_model(dataset_name: str, doc_contents: list[str]) -> TFIDFModel:
@@ -79,14 +94,23 @@ def check_existing_model(
         return existing_model
 
     # Check equivalent dataset if applicable
-    equiv_dataset = EQUIV_DATASETS.get(dataset_name)
-    if equiv_dataset and accept_equiv:
+    if accept_equiv:
         log_msg = (
             f"No model found for {dataset_name}, with {doc_count} documents. "
-            f"Found dataset with same documents, checking for model in {equiv_dataset}"
+            "Attempting to find equivalent datasets."
         )
         logging.info(log_msg)
-        return _check_existing_model(equiv_dataset, doc_count)
+        equiv_datasets = find_equiv_datasets(dataset_name)
+        if equiv_datasets:
+            for equiv_dataset in equiv_datasets:
+                existing_model = _check_existing_model(equiv_dataset, doc_count)
+                if existing_model:
+                    log_msg = (
+                        f"Found dataset with same documents, checking for model in "
+                        f"{equiv_dataset}"
+                    )
+                    logging.info(log_msg)
+                    return existing_model
 
     return None
 
