@@ -8,17 +8,23 @@ from ir_datasets import load
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-from arc_tiptoe.utils import get_device
 
+from arc_tiptoe.utils import get_device
+from typing import NamedTuple
+
+class Arguments(NamedTuple):
+    json_config_path: str
 
 def main(config: dict):
     model_name = config["embed_model"]
     model = SentenceTransformer(model_name, device=get_device())
-    dataset = load(config["data"]["dataset"])
+    dataset_name = config["data"]["query_set"]
+    dataset = load(dataset_name)
 
-    output_dir = (
+    output_dir : Path = (
         Path("processed_queries")
-        / config["data"]["dataset"].replace("/", "_")
+        / config['data']['dataset']
+        / dataset_name.replace("/", "_")
         / f"{model_name.replace('/', '_')}.csv"
     )
     os.makedirs(output_dir.parent.absolute(), exist_ok=True)
@@ -48,12 +54,11 @@ def main(config: dict):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process queries with embedding model")
     parser.add_argument(
-        "--config_path", type=str, required=True, help="Path to JSON config file"
+        "--json_config_path", type=str, required=True, help="Path to JSON config file"
     )
-    args = parser.parse_args()
+    args : Arguments = parser.parse_args()
 
-    with open(args.config_path) as f:
+    with open(args.json_config_path) as f:
         config = json.load(f)
 
-    main(config)
     main(config)
