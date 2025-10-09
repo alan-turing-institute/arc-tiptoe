@@ -29,16 +29,27 @@ type expAllClusterResults struct {
 // Multi cluster experiment will run a series of multi-cluster search queries
 // It will return the results, which will then be picked up by the python experiment script
 // It run per query, the top K clusters as defined in config
-func MultiClusterSearchExperiment(coordinatorAddr string, conf *config.Config, textQuery string, verbose bool) expAllClusterResults {
+// This method assumes the query has already been embedded and the top K cluster indices selected
+// If verbose is true, prints out detailed step-by-step information
+// Returns the results of the experiment
+func MultiClusterSearchExperiment(coordinatorAddr string,
+	conf *config.Config,
+	queryEmb []int8,
+	topKClusterIndices []uint64,
+	queryText string,
+	verbose bool) expAllClusterResults {
 	var allExperimentResults expAllClusterResults
 	if verbose {
 		col := color.New(color.FgYellow).Add(color.Bold)
-		col.Printf("Running multi-cluster search experiment for query: %s\n", textQuery)
+		col.Printf("Running multi-cluster search experiment for query: %s\n", queryText)
 	}
 
 	for topKCluster := 1; topKCluster <= conf.GetSearchTopK(); topKCluster++ {
-		color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
-		singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, topKCluster, textQuery)
+		if verbose {
+			color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
+		}
+		searchClusterIndex := topKClusterIndices[topKCluster-1]
+		singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, queryEmb, searchClusterIndex, queryText)
 		var expResults expQueryClusterResults
 		expResults.ClusterRank = topKCluster
 		expResults.ClusterIndex = singleClusterQueryResult.clusterIndex

@@ -45,7 +45,9 @@ type userQuery struct {
 // connecting to the given coordinator address, using the given config
 // If verbose is true, prints out detailed step-by-step information
 
-func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbose bool) {
+func MultiClusterSearchClient(coordinatorAddr string,
+	conf *config.Config,
+	verbose bool) {
 	for {
 		col := color.New(color.FgYellow).Add(color.Bold)
 		col.Printf("Enter private search query: ")
@@ -55,7 +57,8 @@ func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbo
 		var allQueryResults []queryClusterResults
 
 		// Embed query for multi-cluster search
-		color.Cyan("Embedding query and selecting top %d clusters to search over", conf.GetSearchTopK())
+		color.Cyan("Embedding query and selecting top %d clusters to search over",
+			conf.GetSearchTopK())
 
 		// set up embedding process
 		in, out := embeddings.SetupEmbeddingProcess(conf.GetNumClusters(), conf)
@@ -72,17 +75,27 @@ func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbo
 
 		// Check enough clusters are returned
 		if len(query.TopKClusterIndices) < conf.GetSearchTopK() {
-			panic(fmt.Sprintf("Expected at least %d clusters, got %d", conf.GetSearchTopK(), len(query.TopKClusterIndices)))
+			panic(fmt.Sprintf("Expected at least %d clusters, got %d",
+				conf.GetSearchTopK(),
+				len(query.TopKClusterIndices)))
 		}
 
 		for topKCluster := 1; topKCluster <= conf.GetSearchTopK(); topKCluster++ {
-			color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
+			color.Cyan("Running multi-cluster search for Cluster %d of %d",
+				topKCluster,
+				conf.GetSearchTopK())
 			searchClusterIndex := query.TopKClusterIndices[topKCluster-1]
-			singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, query.Emb, searchClusterIndex, text)
+			singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr,
+				conf,
+				verbose,
+				query.Emb,
+				searchClusterIndex,
+				text)
 			allQueryResults = append(allQueryResults, singleClusterQueryResult)
 		}
 
-		finalResults, finalPerf := parseResultsFromAllClusters(allQueryResults, conf.GetNumSearchResultsPerCluster())
+		finalResults, finalPerf := parseResultsFromAllClusters(allQueryResults,
+			conf.GetNumSearchResultsPerCluster())
 
 		fmt.Printf("\nFinal combined results:\n")
 		for i, res := range finalResults {
@@ -99,12 +112,15 @@ func MultiClusterSearchClient(coordinatorAddr string, conf *config.Config, verbo
 			finalPerf.t1,
 			finalPerf.t2,
 			finalPerf.clientTotal)
-		fmt.Printf("With total upload %.2f MB and total download %.2f MB\n", finalPerf.up1+finalPerf.up2+finalPerf.upOffline, finalPerf.down1+finalPerf.down2+finalPerf.downOffline)
+		fmt.Printf("With total upload %.2f MB and total download %.2f MB\n",
+			finalPerf.up1+finalPerf.up2+finalPerf.upOffline,
+			finalPerf.down1+finalPerf.down2+finalPerf.downOffline)
 
 	}
 }
 
-func parseResultsFromAllClusters(allQueryResults []queryClusterResults, numSearchResultsPerCluster int) ([]singleQueryClusterResult, Perf) {
+func parseResultsFromAllClusters(allQueryResults []queryClusterResults,
+	numSearchResultsPerCluster int) ([]singleQueryClusterResult, Perf) {
 	// Combine results from all clusters
 	resultMap := make(map[string]singleQueryClusterResult)
 	for _, clusterResults := range allQueryResults {
@@ -161,7 +177,12 @@ func parseResultsFromAllClusters(allQueryResults []queryClusterResults, numSearc
 
 }
 
-func runSingleClusterSearch(coordinatorAddr string, conf *config.Config, verbose bool, queryEmb []int8, searchClusterIndex uint64, text string) queryClusterResults {
+func runSingleClusterSearch(coordinatorAddr string,
+	conf *config.Config,
+	verbose bool,
+	queryEmb []int8,
+	searchClusterIndex uint64,
+	text string) queryClusterResults {
 	color.Yellow("Setting up client...")
 
 	client := NewClient(true /* use coordinator */)
@@ -172,14 +193,29 @@ func runSingleClusterSearch(coordinatorAddr string, conf *config.Config, verbose
 
 	client.stepCount = 1
 	client.printStep("Running client preprocessing")
-	perf := client.preprocessRound(coordinatorAddr, true /* verbose */, true /* keep conn */)
+	perf := client.preprocessRound(coordinatorAddr,
+		true, /* verbose */
+		true /* keep conn */)
 
-	queryResults := client.singleClusterSearchRunRound(perf, queryEmb, coordinatorAddr, verbose, true /* keep conn */, conf.GetNumSearchResultsPerCluster(), searchClusterIndex, text)
+	queryResults := client.singleClusterSearchRunRound(perf,
+		queryEmb,
+		coordinatorAddr,
+		verbose, true, /* keep conn */
+		conf.GetNumSearchResultsPerCluster(),
+		searchClusterIndex,
+		text)
 
 	return queryResults
 }
 
-func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, coordinatorAddr string, verbose, keepConn bool, numSearchResultsPerCluster int, ClusterIndex uint64, text string) queryClusterResults {
+func (client *Client) singleClusterSearchRunRound(perf Perf,
+	queryEmb []int8,
+	coordinatorAddr string,
+	verbose bool,
+	keepConn bool,
+	numSearchResultsPerCluster int,
+	ClusterIndex uint64,
+	text string) queryClusterResults {
 	y := color.New(color.FgYellow, color.Bold)
 	fmt.Printf("Executing query \"%s\"\n", y.Sprintf(text))
 
@@ -195,7 +231,8 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, co
 	}
 
 	if verbose {
-		client.printStep(fmt.Sprintf("Building PIR query for cluster %d", ClusterIndex))
+		client.printStep(fmt.Sprintf("Building PIR query for cluster %d",
+			ClusterIndex))
 	}
 
 	// Embed the query for url server search
@@ -208,7 +245,10 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, co
 	}
 	networkingStart := time.Now()
 	embAns := client.getEmbeddingsAnswer(embQuery, true /* keep conn */, coordinatorAddr)
-	perf.t1, perf.up1, perf.down1 = logStats(client.params.NumDocs, networkingStart, embQuery, embAns)
+	perf.t1, perf.up1, perf.down1 = logStats(client.params.NumDocs,
+		networkingStart,
+		embQuery,
+		embAns)
 
 	// Recover document and URL chunk to query for
 	if verbose {
@@ -219,8 +259,15 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, co
 	indicesByScore := utils.SortByScores(scores)
 	docIndex := indicesByScore[0]
 	if verbose {
-		fmt.Printf("\tDoc %d within cluster %d has the largest inner produce with out query\n", docIndex, ClusterIndex)
-		client.printStep(fmt.Sprintf("Building PIR query for url/title of doc %d in cluster %d", docIndex, ClusterIndex))
+		fmt.Printf(
+			"\tDoc %d within cluster %d has the largest inner produce with out query\n",
+			docIndex,
+			ClusterIndex)
+		client.printStep(
+			fmt.Sprintf(
+				"Building PIR query for url/title of doc %d in cluster %d",
+				docIndex,
+				ClusterIndex))
 	}
 
 	// Build URL query
@@ -228,17 +275,24 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, co
 
 	// Send URL query to server
 	if verbose {
-		client.printStep(fmt.Sprintf("Sending PIR query to server for chunk %d", retrievedChunk))
+		client.printStep(fmt.Sprintf(
+			"Sending PIR query to server for chunk %d",
+			retrievedChunk))
 	}
 	networkingStart = time.Now()
 	urlAns := client.getUrlsAnswer(urlQuery, keepConn, coordinatorAddr)
-	perf.t2, perf.up2, perf.down2 = logStats(client.params.NumDocs, networkingStart, urlQuery, urlAns)
+	perf.t2, perf.up2, perf.down2 = logStats(client.params.NumDocs,
+		networkingStart,
+		urlQuery,
+		urlAns)
 
 	// Recover URLs of top n docs in chunk, as defined in config
 	urls := client.ReconstructUrls(urlAns, ClusterIndex, docIndex)
 	if verbose {
 		client.printStep("Reconstructed PIR answers.")
-		fmt.Printf("\tTop %d results in cluster %d\n", numSearchResultsPerCluster, ClusterIndex)
+		fmt.Printf("\tTop %d results in cluster %d\n",
+			numSearchResultsPerCluster,
+			ClusterIndex)
 	}
 
 	var queryResults queryClusterResults
@@ -258,10 +312,11 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, co
 			fmt.Printf("\t% 3d) [score %s] %s\n", j,
 				color.YellowString(fmt.Sprintf("% 4d", scores[at])),
 				color.BlueString(corpus.GetIthUrl(urls, index)))
-			queryResults.results = append(queryResults.results, singleQueryClusterResult{
-				Score: scores[at],
-				Url:   corpus.GetIthUrl(urls, index),
-			})
+			queryResults.results = append(queryResults.results,
+				singleQueryClusterResult{
+					Score: scores[at],
+					Url:   corpus.GetIthUrl(urls, index),
+				})
 		}
 		j += 1
 		if j > numSearchResultsPerCluster {
@@ -270,7 +325,8 @@ func (client *Client) singleClusterSearchRunRound(perf Perf, queryEmb []int8, co
 	}
 
 	perf.clientTotal = time.Since(start).Seconds()
-	fmt.Printf("\tAnswered in:\n\t\t%v (preproc)\n\t\t%v (client total)\n\t\t%v (round 1)\n\t\t%v (round 2)\n\t\t%v (total)\n---\n",
+	fmt.Printf(
+		"\tAnswered in:\n\t\t%v (preproc)\n\t\t%v (client total)\n\t\t%v (round 1)\n\t\t%v (round 2)\n\t\t%v (total)\n---\n",
 		perf.clientPreproc,
 		perf.clientSetup,
 		perf.t1,
