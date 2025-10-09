@@ -252,7 +252,7 @@ class Clusterer(ABC):
         if len(cluster_contents) <= self.max_size:
             self.logger.info("Cluster size within limit, copying to processed")
             with open(
-                f"{self.processing_path}/processed_clusters/cluster_{total_elem_count + 1}.txt",
+                f"{self.processing_path}/processed_clusters/cluster_{total_elem_count}.txt",
                 "w",
                 encoding="utf-8",
             ) as f:
