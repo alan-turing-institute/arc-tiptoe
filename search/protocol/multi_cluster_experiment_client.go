@@ -27,9 +27,11 @@ type expAllClusterResults struct {
 }
 
 // Multi cluster experiment will run a series of multi-cluster search queries
-// It will return the results, which will then be picked up by the python experiment script
+// It will return the results, which will then be picked up by the
+// python experiment script
 // It run per query, the top K clusters as defined in config
-// This method assumes the query has already been embedded and the top K cluster indices selected
+// This method assumes the query has already been embedded
+// and the top K cluster indices selected
 // If verbose is true, prints out detailed step-by-step information
 // Returns the results of the experiment
 func MultiClusterSearchExperiment(coordinatorAddr string,
@@ -46,18 +48,30 @@ func MultiClusterSearchExperiment(coordinatorAddr string,
 
 	for topKCluster := 1; topKCluster <= conf.GetSearchTopK(); topKCluster++ {
 		if verbose {
-			color.Cyan("Running multi-cluster search for Cluster %d of %d", topKCluster, conf.GetSearchTopK())
+			color.Cyan("Running multi-cluster search for Cluster %d of %d",
+				topKCluster,
+				conf.GetSearchTopK())
 		}
 		searchClusterIndex := topKClusterIndices[topKCluster-1]
-		singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr, conf, verbose, queryEmb, searchClusterIndex, queryText)
+		singleClusterQueryResult := runSingleClusterSearch(coordinatorAddr,
+			conf,
+			verbose,
+			queryEmb,
+			searchClusterIndex,
+			queryText)
 		var expResults expQueryClusterResults
 		expResults.ClusterRank = topKCluster
 		expResults.ClusterIndex = singleClusterQueryResult.clusterIndex
 		expResults.Results = singleClusterQueryResult.results
-		expResults.PerfUp = singleClusterQueryResult.perf.up1 + singleClusterQueryResult.perf.up2 + singleClusterQueryResult.perf.upOffline
-		expResults.PerfDown = singleClusterQueryResult.perf.down1 + singleClusterQueryResult.perf.down2 + singleClusterQueryResult.perf.downOffline
+		expResults.PerfUp = singleClusterQueryResult.perf.up1 +
+			singleClusterQueryResult.perf.up2 +
+			singleClusterQueryResult.perf.upOffline
+		expResults.PerfDown = singleClusterQueryResult.perf.down1 +
+			singleClusterQueryResult.perf.down2 +
+			singleClusterQueryResult.perf.downOffline
 
-		allExperimentResults.AllResults = append(allExperimentResults.AllResults, expResults)
+		allExperimentResults.AllResults = append(allExperimentResults.AllResults,
+			expResults)
 		if topKCluster == 1 {
 			allExperimentResults.FinalPerfUp = expResults.PerfUp
 			allExperimentResults.FinalPerfDown = expResults.PerfDown

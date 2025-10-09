@@ -31,3 +31,5 @@ src/arc_tiptoe/preprocessing/utils/known_methods.py
 src/arc_tiptoe/preprocessing/utils/utils.py
 src/arc_tiptoe/search/query_processor.py
 src/arc_tiptoe/search/run_search.py
+src/arc_tiptoe/search/search_experiment.py
+src/arc_tiptoe/search/servers.py
