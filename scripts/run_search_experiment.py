@@ -37,6 +37,7 @@ async def main(
 def main_sync(
     config_path: str,
     search_dir: str = "search",
+    queries_path: str = "scratch/msmarco-queries-embedded.csv",
     dataset_name: str = "msmarco-passage/dev/small",
 ):
     """Main entry point for the script."""
@@ -49,7 +50,9 @@ def main_sync(
         return 1
 
     # Run the search experiment
-    experiment = SearchExperimentSingleThread(config_path, search_dir, dataset_name)
+    experiment = SearchExperimentSingleThread(
+        config_path, queries_path, search_dir, dataset_name
+    )
     experiment.run_experiment(output_path="search_results.csv")
 
     return 1
