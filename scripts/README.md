@@ -93,7 +93,28 @@ python scripts/analysis_from_csv.py \
 ### 3. `preprocess_from_config.py`
 
 (TODO)
+---
 
+### 4. quantization_eval_prep.py
+
+**Purpose**: Creates csv files for analysis comparing quantized and non quantized performance without tiptoe encryptiion protocol
+
+**Description**: 
+- Loads preprocessed data
+- Creates non-quantized cluster equivalents
+- TODO Performs search over each
+- TODO Outputs to csv format used by main experiments (for processing with `analysis_from_csv`)
+
+**Usage**:
+```bash
+
+
+# Specify dataset and parameters
+python scripts/eval-tf-idf.py \
+    --data_dir /path/to/dir
+
+**Output**:
+- TODO
 ---
 
 ## Quantization

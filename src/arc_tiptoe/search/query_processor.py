@@ -13,6 +13,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from arc_tiptoe.preprocessing.utils.config import PreProcessConfig
+from arc_tiptoe.preprocessing.utils.quantization import quantize_query_embedding
 
 
 class QueryProcessor:
@@ -188,9 +189,7 @@ class QueryProcessor:
                 file=sys.stderr,
             )
 
-    def process_query(
-        self, query: str, top_k_clusters: int | None = None, quantize: bool = True
-    ) -> dict:
+    def process_query(self, query: str, top_k_clusters: int | None = None) -> dict:
         """
         Process a single query and return cluster assignment and quantized embedding.
 
@@ -213,24 +212,14 @@ class QueryProcessor:
         else:
             embedding_reduced = embedding
 
-        # Quantize embedding
-        if quantize:
-            data_min = np.min(embedding_reduced)
-            data_max = np.max(embedding_reduced)
-            data_range = max(abs(data_min), abs(data_max))
-            scale = 127.0 / data_range
-            emb = np.clip(np.round(embedding_reduced * scale), -127, 127).astype(
-                np.int8
-            )
-        else:
-            emb = embedding_reduced  # float32
+        embedding_quantized = quantize_query_embedding(embedding_reduced)
 
         # find nearest clusters
         cluster_indices = self._find_nearest_clusters(embedding_reduced, top_k_clusters)
 
         result = {
             "ClusterIndex": int(cluster_indices[0]) if cluster_indices else 0,
-            "Emb": emb.tolist(),
+            "Emb": embedding_quantized.tolist(),
             "TopKClusterIndices": cluster_indices,
         }
         # print(result)
