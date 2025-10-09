@@ -7,6 +7,12 @@ import zlib
 from tqdm import tqdm
 
 
+def write_cluster_file(cluster_file_path: str, contents: list[list[str]]):
+    with open(cluster_file_path, "w") as f:
+        for line in contents:
+            f.write(" | ".join(line) + "\n")
+
+
 def parse_file(cluster_file_path: str) -> list[list[str]]:
     """Parse a cluster file and return its contents.
 

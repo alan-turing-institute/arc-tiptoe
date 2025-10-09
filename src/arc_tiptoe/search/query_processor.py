@@ -188,7 +188,9 @@ class QueryProcessor:
                 file=sys.stderr,
             )
 
-    def process_query(self, query: str, top_k_clusters: int | None = None) -> dict:
+    def process_query(
+        self, query: str, top_k_clusters: int | None = None, quantize: bool = True
+    ) -> dict:
         """
         Process a single query and return cluster assignment and quantized embedding.
 
@@ -212,20 +214,23 @@ class QueryProcessor:
             embedding_reduced = embedding
 
         # Quantize embedding
-        data_min = np.min(embedding_reduced)
-        data_max = np.max(embedding_reduced)
-        data_range = max(abs(data_min), abs(data_max))
-        scale = 127.0 / data_range
-        embedding_quantized = np.clip(
-            np.round(embedding_reduced * scale), -127, 127
-        ).astype(np.int8)
+        if quantize:
+            data_min = np.min(embedding_reduced)
+            data_max = np.max(embedding_reduced)
+            data_range = max(abs(data_min), abs(data_max))
+            scale = 127.0 / data_range
+            emb = np.clip(np.round(embedding_reduced * scale), -127, 127).astype(
+                np.int8
+            )
+        else:
+            emb = embedding_reduced  # float32
 
         # find nearest clusters
         cluster_indices = self._find_nearest_clusters(embedding_reduced, top_k_clusters)
 
         result = {
             "ClusterIndex": int(cluster_indices[0]) if cluster_indices else 0,
-            "Emb": embedding_quantized.tolist(),
+            "Emb": emb.tolist(),
             "TopKClusterIndices": cluster_indices,
         }
         # print(result)
