@@ -38,7 +38,6 @@ def main_sync(
     config_path: str,
     search_dir: str = "search",
     queries_path: str = "scratch/msmarco-queries-embedded.csv",
-    dataset_name: str = "msmarco-passage/dev/small",
 ):
     """Main entry point for the script."""
 
@@ -50,9 +49,7 @@ def main_sync(
         return 1
 
     # Run the search experiment
-    experiment = SearchExperimentSingleThread(
-        config_path, queries_path, search_dir, dataset_name
-    )
+    experiment = SearchExperimentSingleThread(config_path, queries_path, search_dir)
     experiment.run_experiment(output_path="search_results.csv")
 
     return 1
@@ -65,18 +62,13 @@ if __name__ == "__main__":
         type=str,
         default="config/example_preprocess_config.json",
     )
-    arg_parser.add_argument(
-        "--dataset_name", type=str, default="msmarco-passage/dev/small"
-    )
+    arg_parser.add_argument("--queries_path", type=str, default=None)
     args = arg_parser.parse_args()
     async_mode = False
     if async_mode:
-        asyncio.run(
-            main(
-                config_path=args.json_search_config_path, dataset_name=args.dataset_name
-            )
-        )
+        asyncio.run(main(config_path=args.json_search_config_path))
     else:
         main_sync(
-            config_path=args.json_search_config_path, dataset_name=args.dataset_name
+            config_path=args.json_search_config_path,
+            queries_path=args.queries_path,
         )
