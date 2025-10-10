@@ -6,10 +6,6 @@ from dataclasses import dataclass
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from arc_tiptoe.preprocessing.embedding.tt_models import (
-    distilbert_preprocess,
-    load_sentence_transformer,
-)
 from arc_tiptoe.preprocessing.utils.quantization import quantize_query_embedding
 from arc_tiptoe.preprocessing.utils.utils import parse_file
 
