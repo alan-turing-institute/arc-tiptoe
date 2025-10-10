@@ -207,8 +207,8 @@ class SearchExperimentSingleThread:
     def _single_query_search(self, query):
         """Run search for a single query."""
         query_id = query["query_id"]
-        query_embed = np.array(json.loads(query["query_embed"]))
-        query_text = query["query_text"]
+        query_embed = np.array(json.loads(query["embedding"]))
+        query_text = query["text"]
 
         processed_query_embed, cluster_indices = self._process_query(query_embed)
         query_dict = {
