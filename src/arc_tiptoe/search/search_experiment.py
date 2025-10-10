@@ -116,7 +116,6 @@ class SearchExperimentSingleThread:
         config_path: str,
         queries_path: str,
         search_dir: str = "search",
-        dataset_name: str = "msmarco-passage/dev/small",
     ):
         self.config_path = config_path
         with open(config_path, encoding="utf-8") as f:
@@ -124,7 +123,6 @@ class SearchExperimentSingleThread:
 
         self.queries_path = queries_path
         self.search_dir = Path(search_dir).resolve()
-        self.dataset_name = dataset_name
         self.queries = None
         self.cluster_search_num = self.config["clustering"].get("search_top_k", 4)
         self.results_df = pd.DataFrame(
