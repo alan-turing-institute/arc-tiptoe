@@ -202,11 +202,6 @@ class QueryProcessor:
             Dictionary with cluster_index and quantized embedding
         """
 
-        print(
-            f"Processing query: '{query}' with top_k_clusters={top_k_clusters}",
-            file=sys.stderr,
-        )
-
         # Generate embedding using same model as preprocessing
         print("Generating embedding...", file=sys.stderr)
         embedding = self.model.encode_query([query], convert_to_numpy=True)[0]
