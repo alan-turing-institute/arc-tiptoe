@@ -12,6 +12,7 @@ type Config struct {
 	searchTopK                 int
 	searchConfigPath           string
 	numSearchResultsPerCluster int // max results to return per cluster
+	numEmbedServers            int
 }
 
 func MakeConfig(preambleStr string, images bool) *Config {
@@ -112,6 +113,10 @@ func (c *Config) EMBEDDINGS_CLUSTERS_PER_SERVER() int {
 
 func (c *Config) MAX_EMBEDDINGS_SERVERS() int {
 	totalClusters := c.TOTAL_NUM_CLUSTERS()
+
+	if c.numEmbedServers > 0 {
+		return c.numEmbedServers
+	}
 
 	if !c.imageSearch {
 		// for text: use 1 server per 16 clusters, up to 80 servers

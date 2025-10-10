@@ -78,6 +78,7 @@ func (c *Config) LoadFromSearchConfig(preambleStr string, searchConfigPath strin
 	c.embeddingDim = searchConfig.Embedding.ReducedDim
 	c.searchTopK = searchConfig.Clustering.SearchTopK
 	c.numSearchResultsPerCluster = searchConfig.Search.MaxResults
+	c.numEmbedServers = searchConfig.ServerConfig.EmbeddingServers
 
 	// Log configuration
 	fmt.Printf("Search Configuration:\n")
