@@ -35,7 +35,7 @@ def parse_file(cluster_file_path: str) -> list[list[str]]:
         for line in tqdm(lines, desc=f"Parsing {cluster_file_path}"):
             if len(line) <= 1:
                 continue
-            contents.append(line.split(" | "))
+            contents.append(line.strip().split(" | "))
     return contents
 
 
