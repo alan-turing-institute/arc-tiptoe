@@ -29,7 +29,17 @@ class clustering_args(NamedTuple):
 
 
 def clustering_analysis(args: clustering_args):
-    """Run analysis on search results from a CSV file."""
+    """
+    Run analysis on search results from a CSV file.
+    Args:
+        args: Arguments for clustering analysis which contains:
+            - csv_filepath: Path to the CSV file containing search results.
+            - n_results: Number of results to consider.
+            - log_level: Logging level.
+
+    Returns:
+        None
+    """
     logging.getLogger().setLevel(args.log_level.upper())
     log_info = f"Parsing search results from {args.csv_filepath}..."
     logging.info(log_info)
