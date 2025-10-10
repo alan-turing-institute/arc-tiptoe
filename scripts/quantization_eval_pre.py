@@ -233,19 +233,17 @@ if __name__ == "__main__":
 
     if args.query_text_fpath is not None:
         if not args.query_text_fpath.endswith(".tsv"):
-            raise ValueError("--queries_text_fpath must be a .tsv file")
+            msg = "--queries_text_fpath must be a .tsv file"
+            raise ValueError(msg)
 
-        with open(args.query_text_fpath, "r") as f:
-            text = [l.split("\t")[1].strip() for l in f.readlines()]
+        with open(args.query_text_fpath) as f:
+            text = [line.split("\t")[1].strip() for line in f.readlines()]
 
         queries = embed_queries(text)
     elif args.query_embs_fpath is not None:
         queries = load_query_embs(args.query_embs_fpath)
     else:
-        raise ValueError("Must provide either --query_text_fpath or --query_embs_fpath")
+        msg = "Must provide either --query_text_fpath or --query_embs_fpath"
+        raise ValueError(msg)
 
     main(args.data_dir, queries=queries, dimred=args.dimred)
-
-
-#  testing with
-# --data_dir ./data/c1970a4c-46c4-8fbe-cf94-d099e24ba206-2000-192 --query_text_fpath ./test_data/test_queries.tsv
