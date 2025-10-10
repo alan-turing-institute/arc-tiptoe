@@ -102,19 +102,22 @@ python scripts/analysis_from_csv.py \
 **Description**: 
 - Loads preprocessed data
 - Creates non-quantized cluster equivalents
-- TODO Performs search over each
-- TODO Outputs to csv format used by main experiments (for processing with `analysis_from_csv`)
+- Performs search over each
+- Outputs to csv format used by main experiments (for processing with `analysis_from_csv`)
 
 **Usage**:
+
+(check with --help)
+
 ```bash
-
-
-# Specify dataset and parameters
-python scripts/eval-tf-idf.py \
-    --data_dir /path/to/dir
-
+python scripts/quantization_eval_prep.py \
+    --data_dir /path/to/dir \
+    --query_text_fpath /path/to/test_queries.tsv \
+    --dimred 192
+```
 **Output**:
-- TODO
+Saves `non_quantized_search_results.csv` and `quantized_search_results.csv` in your <data_dir> for analysis.
+
 ---
 
 ## Quantization
