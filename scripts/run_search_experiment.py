@@ -38,6 +38,7 @@ def main_sync(
     config_path: str,
     search_dir: str = "search",
     queries_path: str = "scratch/msmarco-queries-embedded.csv",
+    save_path: str = "search_results.csv",
 ):
     """Main entry point for the script."""
 
@@ -50,7 +51,7 @@ def main_sync(
 
     # Run the search experiment
     experiment = SearchExperimentSingleThread(config_path, queries_path, search_dir)
-    experiment.run_experiment(output_path="search_results.csv")
+    experiment.run_experiment(output_path=save_path)
 
     return 1
 
@@ -63,6 +64,7 @@ if __name__ == "__main__":
         default="config/example_preprocess_config.json",
     )
     arg_parser.add_argument("--queries_path", type=str, default=None)
+    arg_parser.add_argument("--save_path", type=str, default="search_results.csv")
     args = arg_parser.parse_args()
     async_mode = False
     if async_mode:
@@ -71,4 +73,5 @@ if __name__ == "__main__":
         main_sync(
             config_path=args.json_search_config_path,
             queries_path=args.queries_path,
+            save_path=args.save_path,
         )
