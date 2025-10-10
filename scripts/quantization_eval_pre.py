@@ -93,6 +93,11 @@ def load_quantized_cluster(
     )
 
 
+def load_pca_components(data_dir: str, dim: int) -> np.ndarray:
+    pca_components_fpath = f"{data_dir}/dim_red/pca_{dim}.npy"
+    return np.load(pca_components_fpath)
+
+
 def construct_non_quantized_cluster(
     original_embs: np.ndarray, quantized_cluster: Cluster
 ) -> Cluster:
@@ -172,14 +177,17 @@ def embed_queries(queries: list[str]) -> np.ndarray:
     return np.array(qembs)
 
 
-def main(data_dir: str, queries: np.ndarray):
+def main(data_dir: str, queries: np.ndarray, dimred: int) -> None:
+    pca_components = load_pca_components(data_dir=data_dir, dim=dimred)
     orig_embs = get_orig_embeddings(data_dir)
     print(f"Shape of original embeddings: {orig_embs.shape}")
 
-    quantized_queries = np.array(
-        [quantize_query_embedding(x) for x in queries], dtype=np.int8
+    reduced_queries = np.matmul(queries, pca_components)
+
+    quantized_reduced_queries = np.array(
+        [quantize_query_embedding(x) for x in reduced_queries], dtype=np.int8
     )
-    print(f"Shape of quantized queries: {quantized_queries.shape}")
+    print(f"Shape of reduced quantized queries: {quantized_reduced_queries.shape}")
 
     cluster_fpaths = get_cluster_fpaths(data_dir)
 
@@ -195,7 +203,7 @@ def main(data_dir: str, queries: np.ndarray):
     nq_results_fpath = f"{data_dir}/non_quantized_search_results.csv"
     nq_search_results.to_csv(nq_results_fpath)
 
-    q_search_results = search(quantized_queries, quantized_clusters)
+    q_search_results = search(quantized_reduced_queries, quantized_clusters)
     print(f"Search results for {len(queries)} queries")
     q_results_fpath = f"{data_dir}/quantized_search_results.csv"
     q_search_results.to_csv(q_results_fpath)
@@ -223,6 +231,8 @@ if __name__ == "__main__":
         help="Path to npy file containing query embeddings",
     )
 
+    argparser.add_argument("--dimred", type=int, required=True)
+
     args = argparser.parse_args()
 
     if args.query_text_fpath is not None:
@@ -238,7 +248,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("Must provide either --query_text_fpath or --query_embs_fpath")
 
-    main(args.data_dir, queries=queries)
+    main(args.data_dir, queries=queries, dimred=args.dimred)
 
 
 #  testing with
