@@ -19,8 +19,7 @@ func SetupEmbeddingProcess(numClusters int, conf *config.Config) (io.WriteCloser
 	}
 
 	toRun := "embeddings/embed_text.py"
-	topKClusters := conf.GetSearchTopK()
-	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters), strconv.Itoa(topKClusters))
+	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters))
 
 	stdin, err1 := cmd.StdinPipe()
 	if err1 != nil {

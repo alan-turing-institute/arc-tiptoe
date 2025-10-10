@@ -6,7 +6,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List
 
 import faiss
 import numpy as np
@@ -21,7 +21,7 @@ class QueryProcessor:
     Reads configuration from preprocessing pipeline to ensure consistency.
     """
 
-    def __init__(self, config_path: str, preamble: str = None):
+    def __init__(self, config_path: str, preamble: str | None = None):
         """
         Initialize query processor with preprocessing config.
 
@@ -45,6 +45,7 @@ class QueryProcessor:
         self._load_model()
         self._load_pca_components()
         self._load_cluster_index()
+        self.search_top_k = self.config["search_top_k"]
 
         print("QueryProcessor initialized:", file=sys.stderr)
         print(f"Model: {self.model_name}", file=sys.stderr)
@@ -189,7 +190,7 @@ class QueryProcessor:
                 file=sys.stderr,
             )
 
-    def process_query(self, query: str, top_k_clusters: int | None = None) -> dict:
+    def process_query(self, query: str) -> dict:
         """
         Process a single query and return cluster assignment and quantized embedding.
 
@@ -200,13 +201,6 @@ class QueryProcessor:
         Returns:
             Dictionary with cluster_index and quantized embedding
         """
-        if top_k_clusters is None:
-            top_k_clusters = self.search_top_k
-
-        print(
-            f"Processing query: '{query}' with top_k_clusters={top_k_clusters}",
-            file=sys.stderr,
-        )
 
         # Generate embedding using same model as preprocessing
         print("Generating embedding...", file=sys.stderr)
@@ -229,7 +223,9 @@ class QueryProcessor:
         ).astype(np.int8)
 
         # find nearest clusters
-        cluster_indices = self._find_nearest_clusters(embedding_reduced, top_k_clusters)
+        cluster_indices = self._find_nearest_clusters(
+            embedding_reduced, self.search_top_k
+        )
 
         result = {
             "ClusterIndex": int(cluster_indices[0]) if cluster_indices else 0,
@@ -248,7 +244,7 @@ class QueryProcessor:
         query_embedding = embedding.reshape(1, -1).astype("float32")
 
         # search for clusters
-        distances, indices = self.cluster_index.search(
+        _, indices = self.cluster_index.search(
             query_embedding, min(top_k, self.num_clusters)
         )
 
@@ -292,7 +288,7 @@ def main():
             if not query:
                 continue
 
-            result = processor.process_query(query, top_k_clusters)
+            result = processor.process_query(query)
             print(json.dumps(result))
             sys.stdout.flush()
 
