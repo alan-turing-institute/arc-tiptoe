@@ -181,3 +181,4 @@ results/
 models/
 config/
 .temp/
+processed_queries/
