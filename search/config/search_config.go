@@ -13,7 +13,7 @@ type SearchConfig struct {
 
 	Embedding struct {
 		ModelName    string `json:"model_name"`
-		EmbeddingDim int    `json:"embedding_dimension"`
+		EmbeddingDim int    `json:"embedding_dim"`
 		ReducedDim   int    `json:"reduced_dimension"`
 	} `json:"embedding"`
 
