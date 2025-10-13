@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account vjgo8416-co-beagle
 #SBATCH --qos turing
-#SBATCH --job-name process-gemma-msmarco
+#SBATCH --job-name exp-msmarco_trec-distilbert
 #SBATCH --time 0-5:0:0
 #SBATCH --nodes 1
 #SBATCH --gpus 2
