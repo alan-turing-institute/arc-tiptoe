@@ -2,7 +2,7 @@
 #SBATCH --account vjgo8416-co-beagle
 #SBATCH --qos turing
 #SBATCH --job-name exp-msmarco-distilbert-array
-#SBATCH --time 0-5:0:0
+#SBATCH --time 0-45:0:0
 #SBATCH --nodes 1
 #SBATCH --gpus 2
 #SBATCH --cpus-per-gpu 36
