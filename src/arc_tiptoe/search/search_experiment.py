@@ -225,7 +225,7 @@ class SearchExperimentSingleThread:
             "run",
             "main.go",
             "--search_config",
-            f"../{self.config_path}",
+            f"{self.config_path}",
             "multi-cluster-experiment",
             tmp_filename,
         ]
