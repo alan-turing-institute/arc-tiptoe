@@ -2,12 +2,11 @@
 #SBATCH --account vjgo8416-co-beagle
 #SBATCH --qos turing
 #SBATCH --job-name exp-msmarco-distilbert
-#SBATCH --time 0-5:0:0
+#SBATCH --time 0-45:0:0
 #SBATCH --nodes 1
 #SBATCH --gpus 2
 #SBATCH --cpus-per-gpu 36
 #SBATCH --output /bask/projects/v/vjgo8416-co-beagle/slurm_logs/exp-distilbert-msmarco_%j.out
-#SBATCH --array 0-10
 
 # Load required modules here
 module purge
@@ -28,8 +27,8 @@ export PATH=$PATH:/bask/projects/v/vjgo8416-co-beagle/software/go/go/bin
 
 # Set script variables here
 export SEARCH_CONFIG_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/configs/distilbert_config_post_embeddings_search_config.json
-export QUERIES_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/processed_queries/msmarco/msmarco-document_dev/msmarco-distilbert-base-tas-b_shards/shard_${SLURM_ARRAY_TASK_ID}.csv
-export SAVE_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search_results/msmarco/msmarco-document_dev/distilbert/result_${SLURM_ARRAY_TASK_ID}.csv
+export QUERIES_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/processed_queries/msmarco/msmarco-document_dev/msmarco-distilbert-base-tas-b.csv
+export SAVE_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search_results/msmarco/msmarco-document_dev/distilbert/result.csv
 export SEARCH_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search
 
 
