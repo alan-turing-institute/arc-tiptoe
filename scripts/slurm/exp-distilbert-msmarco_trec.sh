@@ -30,4 +30,4 @@ export QUERIES_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/processed_que
 export SAVE_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search_results/msmarco/msmarco-document_trec/distilbert/results.csv
 
 
-python3 scripts/run_search_experiment.py --json_search_config_path $SEARCH_CONFIG_PATH --queries_path $QUERIES_PATH --save_path $SAVE_PATH
+python3 scripts/run_search_experiment.py --json_search_config_path ${SEARCH_CONFIG_PATH} --queries_path ${QUERIES_PATH} --save_path ${SAVE_PATH}
