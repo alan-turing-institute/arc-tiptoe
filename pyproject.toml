@@ -51,7 +51,7 @@ dependencies = [
     "jsonargparse",
     "ir_datasets",
     "datasets",
-    "psutil"
+    "psutil"q
 ]
 
 [project.optional-dependencies]
