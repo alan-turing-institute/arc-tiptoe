@@ -6,7 +6,7 @@
 #SBATCH --nodes 1
 #SBATCH --gpus 2
 #SBATCH --cpus-per-gpu 36
-#SBATCH --output /bask/projects/v/vjgo8416-co-beagle/slurm_logs/exp-distilbert-msmarco_${SLURM_JOB_ID}.out
+#SBATCH --output /bask/projects/v/vjgo8416-co-beagle/slurm_logs/exp-distilbert-msmarco_%j.out
 #SBATCH --array 0-10
 
 # Load required modules here
