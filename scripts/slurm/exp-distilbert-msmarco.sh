@@ -6,7 +6,7 @@
 #SBATCH --nodes 1
 #SBATCH --gpus 2
 #SBATCH --cpus-per-gpu 36
-#SBATCH --output /bask/projects/v/vjgo8416-co-beagle/slurm_logs/exp-distilbert-msmarco.out
+#SBATCH --output /bask/projects/v/vjgo8416-co-beagle/slurm_logs/exp-distilbert-msmarco_${SLURM_JOB_ID}.out
 #SBATCH --array 0-10
 
 # Load required modules here
@@ -24,6 +24,7 @@ export IR_DATASETS_HOME=/bask/projects/v/vjgo8416-co-beagle/ir_datasets_cache
 export HUGGINGFACE_HUB_CACHE=/bask/projects/v/vjgo8416-co-beagle/.cache
 export CGO_CXXFLAGS="-I/bask/projects/v/vjgo8416-co-beagle/software/include/SEAL-4.1 -I/bask/projects/v/vjgo8416-co-beagle/software/SEAL/native/src -I/bask/projects/v/vjgo8416-co-beagle/software/SEAL/build"
 export CGO_LDFLAGS="-L/bask/projects/v//vjgo8416-co-beagle/software/lib64 -lseal-4.1" 
+export PATH=$PATH:/bask/projects/v/vjgo8416-co-beagle/software/go/go/bin
 
 # Set script variables here
 export SEARCH_CONFIG_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/configs/distilbert_config_post_embeddings_search_config.json
