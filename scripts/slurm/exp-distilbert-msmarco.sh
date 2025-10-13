@@ -30,6 +30,7 @@ export PATH=$PATH:/bask/projects/v/vjgo8416-co-beagle/software/go/go/bin
 export SEARCH_CONFIG_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/configs/distilbert_config_post_embeddings_search_config.json
 export QUERIES_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/processed_queries/msmarco/msmarco-document_dev/msmarco-distilbert-base-tas-b_shards/shard_${SLURM_ARRAY_TASK_ID}.csv
 export SAVE_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search_results/msmarco/msmarco-document_dev/distilbert/result_${SLURM_ARRAY_TASK_ID}.csv
+export SEARCH_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search
 
 
-python3 scripts/run_search_experiment.py --json_search_config_path ${SEARCH_CONFIG_PATH} --queries_path ${QUERIES_PATH} --save_path ${SAVE_PATH}
+python3 scripts/run_search_experiment.py --json_search_config_path ${SEARCH_CONFIG_PATH} --queries_path ${QUERIES_PATH} --save_path ${SAVE_PATH} --search_dir ${SEARCH_PATH}

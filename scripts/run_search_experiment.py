@@ -65,6 +65,7 @@ if __name__ == "__main__":
     )
     arg_parser.add_argument("--queries_path", type=str, default=None)
     arg_parser.add_argument("--save_path", type=str, default="search_results.csv")
+    arg_parser.add_argument("--search_dir", type=str, default="search")
     args = arg_parser.parse_args()
     async_mode = False
     if async_mode:
@@ -72,6 +73,7 @@ if __name__ == "__main__":
     else:
         main_sync(
             config_path=args.json_search_config_path,
+            search_dir=args.search_dir,
             queries_path=args.queries_path,
             save_path=args.save_path,
         )
