@@ -29,7 +29,7 @@ class DimReducer(ABC):
         self.config = config
         self.within_pipeline = within_pipeline
         # replace datasetname slashes with underscores for file paths
-        dataset_name_safe = copy(self.config.dataset_name).replace("/", "_")
+        dataset_name_safe = copy(self.config.data["dataset"]).replace("/", "_")
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
