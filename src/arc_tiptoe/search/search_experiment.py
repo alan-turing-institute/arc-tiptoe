@@ -216,7 +216,7 @@ class SearchExperimentSingleThread:
             "clusterIndices": cluster_indices,
             "queryText": query_text,
         }
-        tmp_filename = f"{self.search_dir}/tmp_{uuid4()}.json"
+        tmp_filename = f"{self.search_dir}/tmp/tmp_{uuid4()}.json"
         with open(tmp_filename, "w", encoding="utf-8") as f:
             json.dump(query_dict, f)
 
