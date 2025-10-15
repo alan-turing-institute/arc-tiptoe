@@ -1,29 +1,35 @@
 import argparse
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import NamedTuple
 
 import pandas as pd
 from ir_datasets import load
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-
 from arc_tiptoe.utils import get_device
-from typing import NamedTuple
+from src.arc_tiptoe.preprocessing.embedding.tt_models import PREPROCESSING_METHODS
+
 
 class Arguments(NamedTuple):
     json_config_path: str
 
+
 def main(config: dict):
+    preprocess: Callable[[str], str] = PREPROCESSING_METHODS.get(
+        config.get("preprocess_method", "none"), lambda x: x
+    )
     model_name = config["embed_model"]
     model = SentenceTransformer(model_name, device=get_device())
     dataset_name = config["data"]["query_set"]
     dataset = load(dataset_name)
 
-    output_dir : Path = (
+    output_dir: Path = (
         Path("processed_queries")
-        / config['data']['dataset']
+        / config["data"]["dataset"]
         / dataset_name.replace("/", "_")
         / f"{model_name.replace('/', '_')}.csv"
     )
@@ -32,7 +38,8 @@ def main(config: dict):
     embeddings_file = pd.DataFrame(columns=["query_id", "embedding", "text"])
 
     for query in tqdm(dataset.queries_iter(), total=dataset.queries_count()):
-        output = model.encode_query([query.text], convert_to_numpy=True)[0]
+        query_text = preprocess(query.text)
+        output = model.encode_query([query_text], convert_to_numpy=True)[0]
         embeddings_file = pd.concat(
             [
                 embeddings_file,
@@ -56,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--json_config_path", type=str, required=True, help="Path to JSON config file"
     )
-    args : Arguments = parser.parse_args()
+    args: Arguments = parser.parse_args()
 
     with open(args.json_config_path) as f:
         config = json.load(f)
