@@ -7,6 +7,7 @@ import glob
 import logging
 import os
 from abc import ABC, abstractmethod
+from copy import copy
 
 import numpy as np
 import torch
@@ -24,6 +25,8 @@ class Embedder(ABC):
     def __init__(self, config: PreProcessConfig, within_pipeline: bool = False):
         self.config = config
         self.within_pipeline = within_pipeline
+        # replace datasetname slashes with underscores for file paths
+        dataset_name_safe = copy(self.config.dataset_name).replace("/", "_")
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -31,7 +34,7 @@ class Embedder(ABC):
                 logging.StreamHandler(),
                 logging.FileHandler(
                     f"data/{self.config.uuid}/"
-                    f"{self.config.data['dataset']}_"
+                    f"{dataset_name_safe}_"
                     f"{self.config.data['data_subset_size']}_embedding.log"
                 ),
             ],
