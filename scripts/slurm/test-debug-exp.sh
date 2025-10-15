@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account vjgo8416-co-beagle
 #SBATCH --qos turing
-#SBATCH --job-name exp-msmarco_trec-distilbert
+#SBATCH --job-name test-debug-exp
 #SBATCH --time 0-0:30:0
 #SBATCH --nodes 1
 #SBATCH --gpus 2
