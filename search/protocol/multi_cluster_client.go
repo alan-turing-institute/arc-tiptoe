@@ -73,6 +73,9 @@ func MultiClusterSearchClient(coordinatorAddr string,
 			panic(err)
 		}
 
+		color.Green("Query embedded and top clusters selected. Searching over clusters %v\n",
+			query.TopKClusterIndices)
+
 		// Check enough clusters are returned
 		if len(query.TopKClusterIndices) < conf.GetSearchTopK() {
 			panic(fmt.Sprintf("Expected at least %d clusters, got %d",
