@@ -54,9 +54,7 @@ class Embedder(ABC):
                     self.device = "mps"
             self.model = self.load_model(self.config.embed_model, self.device)
             if self.config.embed_pars["preprocessing_required"]:
-                print(
-                    f"Preprocessing documents"
-                )
+                print(f"Preprocessing documents")
 
     def _return_config_in_pipeline(self):
         if self.within_pipeline:
@@ -70,9 +68,7 @@ class Embedder(ABC):
 
     def gen_directory_structure(self):
         """
-        Generate the directory structure for the embedding.
-
-        TODO: update when finalised directory structure
+        Generate the directory structure for the embedding. See README for details.
         """
         os.makedirs(
             os.path.join("data", self.config.uuid, "embedding", "embeddings"),
@@ -83,21 +79,29 @@ class Embedder(ABC):
         )
 
     def load_dataset(self):
-        """Load the dataset. TODO: refactor for additional datasets"""
-        if self.config.data["dataset"] == "msmarco":
-            if self.config.embed_pars.get("chunk_data", False):
-                self.dataset = tt_ds.load_msmarco_dataset_ir()
-                self.logger.info(
-                    "MS MARCO dataset loaded with %d documents",
-                    self.dataset.docs_count(),
-                )
-            else:
-                self.dataset = tt_ds.load_msmarco_dataset_hf(
-                    max_docs=self.config.data["data_subset_size"]
-                )
-        else:
-            error_msg = f"Dataset {self.config.data['dataset']} not implemented"
-            raise NotImplementedError(error_msg)
+        """Load the dataset into either a Hugging Face dataset or an ir_datasets
+        dataset depending on whether chunking is required.
+
+        Sets self.dataset to the loaded dataset.
+        """
+        if self.config.embed_pars.get("chunk_data"):
+            self.dataset = tt_ds.load_ir_dataset_hf(
+                self.config.data["dataset"],
+                max_docs=self.config.data["data_subset_size"],
+            )
+            self.logger.info(
+                "Dataset %s loaded with %d documents",
+                self.config.data["dataset"],
+                self.dataset.num_rows,
+            )
+            return 1
+        self.dataset = tt_ds.load_ir_dataset(self.config.data["dataset"])
+        self.logger.info(
+            "Dataset %s loaded with %d documents",
+            self.config.data["dataset"],
+            self.dataset.docs_count(),
+        )
+        return 1
 
     def embed(self):
         """Embed the dataset using the specified embedding model."""
@@ -135,11 +139,10 @@ class Embedder(ABC):
             hf_dataset = self.dataset.map(
                 lambda x: {
                     "body": self._preprocess_data(
-                        x["body"], 
-                        max_length=self.config.embed_pars["sequence_length"]
-                        )
-                    }, 
-                batch_size=32
+                        x["body"], max_length=self.config.embed_pars["sequence_length"]
+                    )
+                },
+                batch_size=32,
             )
 
         embeddings = np.array(
