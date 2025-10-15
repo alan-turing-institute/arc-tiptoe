@@ -7,7 +7,7 @@
 #SBATCH --gpus 2
 #SBATCH --cpus-per-gpu 36
 #SBATCH --output /bask/projects/v/vjgo8416-co-beagle/slurm_logs/exp-distilbert-msmarco-array_%j.out
-#SBATCH --array=1,5,6
+#SBATCH --array=0,1,2,6,7
 #SBATCH --ntasks-per-node=1
 
 # Load required modules here
