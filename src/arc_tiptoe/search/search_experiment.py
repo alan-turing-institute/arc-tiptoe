@@ -192,12 +192,14 @@ class SearchExperimentSingleThread:
         cluster_indices = self._find_nearest_clusters(
             query_embed, self.cluster_search_num
         )
+        print(f"Cluster indices: {cluster_indices}")
 
         # Quantise embedding
         data_min = np.min(query_embed)
         data_max = np.max(query_embed)
         data_range = max(abs(data_min), abs(data_max))
         scale = 127 / data_range if data_range != 0 else 1.0
+        print(f"Quantisation scale: {scale}")
         query_embed_quant = np.clip(np.round(query_embed * scale), -127, 127).astype(
             np.int8
         )
