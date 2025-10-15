@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 from arc_tiptoe.utils import get_device
-from src.arc_tiptoe.preprocessing.embedding.tt_models import PREPROCESSING_METHODS
+from arc_tiptoe.preprocessing.embedding.tt_models import PREPROCESSING_METHODS
 
 
 class Arguments(NamedTuple):
