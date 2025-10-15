@@ -198,7 +198,7 @@ class SearchExperimentSingleThread:
         data_max = np.max(query_embed)
         data_range = max(abs(data_min), abs(data_max))
         scale = 127 / data_range if data_range != 0 else 1.0
-        query_embed_quant = np.clip(np.round(query_embed * scale), -128, 127).astype(
+        query_embed_quant = np.clip(np.round(query_embed * scale), -127, 127).astype(
             np.int8
         )
 
