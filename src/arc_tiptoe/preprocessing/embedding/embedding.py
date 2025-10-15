@@ -87,7 +87,7 @@ class Embedder(ABC):
 
         Sets self.dataset to the loaded dataset.
         """
-        if self.config.embed_pars.get("chunk_data"):
+        if not self.config.embed_pars.get("chunk_data"):
             self.dataset = tt_ds.load_ir_dataset_hf(
                 self.config.data["dataset"],
                 max_docs=self.config.data["data_subset_size"],

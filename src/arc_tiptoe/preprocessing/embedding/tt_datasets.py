@@ -38,14 +38,17 @@ def load_ir_dataset_hf(dataset_name: str, max_docs: int | None = None) -> Datase
         for doc in tqdm(dataset.docs_iter(), desc="Loading documents"):
             if max_docs and len(docs) >= max_docs:
                 break
-            docs.append(
-                {
-                    "doc_id": doc.doc_id,
-                    "body": doc.body,
-                    "title": doc.title,
-                    "url": doc.url,
-                }
-            )
+            if dataset_name.startswith("wikir"):
+                docs.append({"doc_id": doc.doc_id, "body": doc.text})
+            else:
+                docs.append(
+                    {
+                        "doc_id": doc.doc_id,
+                        "body": doc.body,
+                        "title": doc.title,
+                        "url": doc.url,
+                    }
+                )
         return Dataset.from_list(docs)
 
     return convert_to_hf_format()
