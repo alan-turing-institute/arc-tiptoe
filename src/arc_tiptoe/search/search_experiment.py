@@ -170,7 +170,9 @@ class SearchExperimentSingleThread:
         if self.cluster_index is None:
             return [0]
 
-        _, indices = self.cluster_index.search(embedding.reshape(1, -1), top_k)
+        _, indices = self.cluster_index.search(
+            embedding.reshape(1, -1).astype("float32"), top_k
+        )
 
         # only return valid clusters
         valid_clusters = []
