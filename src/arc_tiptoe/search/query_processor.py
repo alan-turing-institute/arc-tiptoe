@@ -10,6 +10,7 @@ from typing import List
 
 import faiss
 import numpy as np
+import torch
 from sentence_transformers import SentenceTransformer
 
 from arc_tiptoe.preprocessing.utils.config import PreProcessConfig
@@ -161,8 +162,8 @@ class QueryProcessor:
         """Load the embedding model"""
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         os.environ["OMP_NUM_THREADS"] = "1"
-        # TODO refactor for GPU
-        self.model = SentenceTransformer(self.model_name, device="cpu")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = SentenceTransformer(self.model_name, device=device)
 
     def _load_pca_components(self):
         """Load PCA components for dimensionality reduction"""
