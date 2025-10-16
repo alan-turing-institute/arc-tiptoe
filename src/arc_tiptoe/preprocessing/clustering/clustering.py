@@ -5,6 +5,7 @@ Clustering class for document embeddings.
 import logging
 import os
 from abc import ABC, abstractmethod
+from copy import copy
 
 import faiss
 import numpy as np
@@ -27,6 +28,8 @@ class Clusterer(ABC):
     def __init__(self, config: PreProcessConfig, within_pipeline: bool = False):
         self.config = config
         self.within_pipeline = within_pipeline
+        # replace datasetname slashes with underscores for file paths
+        dataset_name_safe = copy(self.config.data["dataset"]).replace("/", "_")
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -34,7 +37,7 @@ class Clusterer(ABC):
                 logging.StreamHandler(),
                 logging.FileHandler(
                     f"data/{self.config.uuid}/"
-                    f"{self.config.data['dataset']}_"
+                    f"{dataset_name_safe}_"
                     f"{self.config.cluster['clustering_method']}_clustering.log"
                 ),
             ],
@@ -268,7 +271,7 @@ class Clusterer(ABC):
             if cluster_embeddings.ndim == 1:
                 cluster_embeddings = cluster_embeddings.reshape(1, -1)
             return np.array([np.mean(cluster_embeddings, axis=0)]), 1
-        
+
         self.logger.info("Cluster size exceeds limit, sub-clustering")
         new_centroids, assignment_dict = self._sub_clustering(cluster_contents)
 
