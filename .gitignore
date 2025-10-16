@@ -193,3 +193,4 @@ models/
 config/
 .temp/
 processed_queries/
+search_results/

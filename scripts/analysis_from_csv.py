@@ -47,12 +47,13 @@ def clustering_analysis(args: clustering_args):
 
     # parse dataset name from filepath and load IR dataset object and queries
     dataset_name = args.csv_filepath.split("/")[1]
+    model_name = args.csv_filepath.split("/")[-3]
     ir_dataset_name = DATASET_SAVE_MAP.get(dataset_name, dataset_name.replace("_", "/"))
     dataset = ir_datasets.load(ir_dataset_name)
     query_list = load_queries_from_ir_datasets(dataset=dataset)
 
     # create output directories
-    outputs_dir = os.path.join(RESULTS_DIR, dataset_name, "embedding_model")
+    outputs_dir = os.path.join(RESULTS_DIR, dataset_name, model_name)
 
     # loop through n_clusters and save results and analysis
     for n_clusters, cluster_results in all_results.items():
@@ -80,9 +81,8 @@ def clustering_analysis(args: clustering_args):
 if __name__ == "__main__":
     arg_parser = jsonargparse.ArgumentParser()
     arg_parser.add_argument(
-        "--csv_filepath",
+        "csv_filepath",
         type=str,
-        default="results/msmarco-document_trec-dl-2019/distilbert/search_results/test.csv",
         help="Path to the CSV file containing search results.",
     )
     arg_parser.add_argument(

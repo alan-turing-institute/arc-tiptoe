@@ -187,9 +187,14 @@ def evaluate_queries(
         Dictionary of evaluation results for each query.
     """
     all_results = {}
+    skipped = []
     for qid, _, _, qrels in tqdm(query_list, desc="Query No."):
         query_results: dict[str, float] = {}
-        query_search_results = search_results[qid]
+        try:
+            query_search_results = search_results[qid]
+        except KeyError:
+            skipped.append(qid)
+            continue
         # for these metrics we consider all relevant docs (rel>0)
         # don't need to pass target_relevance_level here
         relevant_document_ids = get_relevant_docs(qrels)
@@ -228,5 +233,7 @@ def evaluate_queries(
             print("-----------------------------")
             print("")
 
+    if len(skipped) > 0:
+        print(f"Found {len(skipped)} missing queries out of {len(query_list)} total.")
     # Save results to JSON
     return all_results
