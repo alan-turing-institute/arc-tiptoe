@@ -46,7 +46,7 @@ class SearchExperimentSingleThread:
             f"dim{self.config['embedding'].get('reduced_dimension', 192)}/index.faiss"
         )
         self.centroids_path = f"data/{self.config['uuid']}/clusters/centroids.txt"
-        self.cluster_index = None
+        self.cluster_index = self._load_cluster_index()
         self.num_clusters = self.config["clustering"].get("total_clusters")
         self.model_name = self.config["embedding"].get("model_name")
         self.model = self._load_model()
@@ -74,7 +74,6 @@ class SearchExperimentSingleThread:
             )
         else:
             pca_components_path = self.config["dim_reduction"]["pca_components_file"]
-            print(f"Loading PCA components from {pca_components_path}")
         return np.load(pca_components_path)
 
     def _load_cluster_index(self):
@@ -88,12 +87,11 @@ class SearchExperimentSingleThread:
             centroids_file = self.config["clustering"]["centroids_file"]
 
         if os.path.exists(self.faiss_index_path):
-            print(f"Loading FAISS index from {self.faiss_index_path}")
             return faiss.read_index(self.faiss_index_path)
 
         print(f"Loading centroids from {centroids_file}")
         centroids = np.loadtxt(centroids_file)
-        cluster_index = faiss.IndexFlatL2(centroids.shape[1])
+        cluster_index = faiss.IndexFlatIP(centroids.shape[1])
         cluster_index.add(centroids.astype("float32"))
         return cluster_index
 
@@ -101,13 +99,11 @@ class SearchExperimentSingleThread:
         self, embedding: np.ndarray, top_k: int | None
     ) -> list[int]:
         """Find the top-k nearest clusters fro a given embedding"""
-        self.cluster_index = self._load_cluster_index()
-
         if self.cluster_index is None:
             print("No cluster index found, returning cluster 0")
             return [0]
 
-        distances, indices = self.cluster_index.search(
+        _, indices = self.cluster_index.search(
             embedding.reshape(1, -1).astype("float32"), top_k
         )
 
@@ -117,35 +113,26 @@ class SearchExperimentSingleThread:
             if indices[0][i] < self.num_clusters:
                 valid_clusters.append(int(indices[0][i]))
 
-        return valid_clusters, distances
+        return valid_clusters
 
-    def _process_query(self, query_text):
+    def _process_query(self, query_embed):
         """Process a single query embedding prior to search.
 
         This runs the search over the centroids to extract the top-k clusters, and
         runs the dimensionality reduction (if needed) and quantisation
         """
-        # Print query
-        print(f"Processing query: {query_text}")
-
-        # Embed query
-        query_embed = self.model.encode_query([query_text], convert_to_numpy=True)[0]
-
         if self.config["dim_reduction"]["applied"]:
             query_embed = np.matmul(query_embed, self.pca_components)
 
-        cluster_indices, distances = self._find_nearest_clusters(
+        cluster_indices = self._find_nearest_clusters(
             query_embed, self.cluster_search_num
         )
-        print(f"Cluster indices: {cluster_indices}")
-        print(f"Cluster distances: {distances}")
 
         # Quantise embedding
         data_min = np.min(query_embed)
         data_max = np.max(query_embed)
         data_range = max(abs(data_min), abs(data_max))
         scale = 127 / data_range if data_range != 0 else 1.0
-        print(f"Quantisation scale: {scale}")
         query_embed_quant = np.clip(np.round(query_embed * scale), -127, 127).astype(
             np.int8
         )
@@ -155,10 +142,10 @@ class SearchExperimentSingleThread:
     def _single_query_search(self, query):
         """Run search for a single query."""
         query_id = query["query_id"]
-        # query_embed = np.array(json.loads(query["embedding"]))
+        query_embed = np.array(json.loads(query["embedding"]))
         query_text = query["text"]
 
-        processed_query_embed, cluster_indices = self._process_query(query_text)
+        processed_query_embed, cluster_indices = self._process_query(query_embed)
         query_dict = {
             "queryEmbed": processed_query_embed.tolist(),
             "clusterIndices": cluster_indices,

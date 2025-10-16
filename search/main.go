@@ -69,8 +69,6 @@ func multiClusterExperiment(coordinatorIP string, conf *config.Config) {
 		tmpFileName = args[1]
 	}
 
-	fmt.Printf("Reading temporary query file: %s\n", tmpFileName)
-
 	jsonFile, err := os.Open(tmpFileName)
 	if err != nil {
 		panic(err)
@@ -80,10 +78,6 @@ func multiClusterExperiment(coordinatorIP string, conf *config.Config) {
 	queryEmb := query.QueryEmbed
 	topKClusterIndices := query.ClusterIndices
 	queryText := query.QueryText
-
-	fmt.Printf("Query text: %s\n", queryText)
-	fmt.Printf("Query embedding length: %d\n", len(queryEmb))
-	fmt.Printf("Top K cluster indices: %v\n", topKClusterIndices)
 
 	// delete temporary query file
 	err = os.Remove(tmpFileName)
