@@ -17,7 +17,7 @@ import torch
 from tqdm import tqdm as tqdm_sync
 from tqdm.asyncio import tqdm
 
-from arc_tiptoe.preprocess.embedding import tt_models
+from arc_tiptoe.preprocessing.embedding import tt_models
 
 
 class SearchExperimentAsync:
