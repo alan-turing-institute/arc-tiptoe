@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -12,7 +11,6 @@ from ir_datasets import load
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-from arc_tiptoe.preprocessing.embedding.tt_models import PREPROCESSING_METHODS
 from arc_tiptoe.utils import get_device
 
 
@@ -21,9 +19,6 @@ class Arguments(NamedTuple):
 
 
 def main(config: dict):
-    preprocess: Callable[[str], str] = PREPROCESSING_METHODS.get(
-        config.get("preprocess_method", "none"), lambda x: x
-    )
     model_name = config["embed_model"]
     model = SentenceTransformer(model_name, device=get_device())
     dataset_name = config["data"]["query_set"]
@@ -40,8 +35,7 @@ def main(config: dict):
     embeddings_file = pd.DataFrame(columns=["query_id", "embedding", "text"])
 
     for query in tqdm(dataset.queries_iter(), total=dataset.queries_count()):
-        query_text = preprocess(query.text)
-        output = model.encode_query([query_text], convert_to_numpy=True)[0]
+        output = model.encode_query([query.text], convert_to_numpy=True)[0]
         embeddings_file = pd.concat(
             [
                 embeddings_file,
