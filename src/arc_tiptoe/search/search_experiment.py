@@ -171,8 +171,8 @@ class SearchExperimentSingleThread:
             print("No cluster index found, returning cluster 0")
             return [0]
 
-        _, indices = self.cluster_index.search(
-            embedding.reshape(1, -1).astype("float32"), top_k, return_distance=True
+        distances, indices = self.cluster_index.search(
+            embedding.reshape(1, -1).astype("float32"), top_k
         )
 
         # only return valid clusters
@@ -181,7 +181,7 @@ class SearchExperimentSingleThread:
             if indices[0][i] < self.num_clusters:
                 valid_clusters.append(int(indices[0][i]))
 
-        return valid_clusters
+        return valid_clusters, distances
 
     def _process_query(self, query_embed):
         """Process a single query embedding prior to search.
@@ -192,10 +192,11 @@ class SearchExperimentSingleThread:
         if self.config["dim_reduction"]["applied"]:
             query_embed = np.matmul(query_embed, self.pca_components)
 
-        cluster_indices = self._find_nearest_clusters(
+        cluster_indices, distances = self._find_nearest_clusters(
             query_embed, self.cluster_search_num
         )
         print(f"Cluster indices: {cluster_indices}")
+        print(f"Cluster distances: {distances}")
 
         # Quantise embedding
         data_min = np.min(query_embed)
