@@ -273,8 +273,6 @@ def main():
         sys.exit(1)
 
     config_path = sys.argv[1]
-    num_clusters = int(sys.argv[2])
-    top_k_clusters = int(sys.argv[3]) if len(sys.argv) > 3 else None
 
     # Extract preamble from path if provided
     preamble = None

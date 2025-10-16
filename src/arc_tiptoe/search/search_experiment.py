@@ -46,7 +46,7 @@ class SearchExperimentSingleThread:
             f"dim{self.config['embedding'].get('reduced_dimension', 192)}/index.faiss"
         )
         self.centroids_path = f"data/{self.config['uuid']}/clusters/centroids.txt"
-        self.cluster_index = self._load_cluster_index()
+        self.cluster_index = None
         self.num_clusters = self.config["clustering"].get("total_clusters")
         self.model_name = self.config["embedding"].get("model_name")
         self.model = self._load_model()
@@ -101,6 +101,8 @@ class SearchExperimentSingleThread:
         self, embedding: np.ndarray, top_k: int | None
     ) -> list[int]:
         """Find the top-k nearest clusters fro a given embedding"""
+        self.cluster_index = self._load_cluster_index()
+
         if self.cluster_index is None:
             print("No cluster index found, returning cluster 0")
             return [0]
@@ -169,9 +171,9 @@ class SearchExperimentSingleThread:
         cmd = [
             "go",
             "run",
-            "main.go",
+            ".",
             "--search_config",
-            f"{self.config_path}",
+            f"../{self.config_path}",
             "multi-cluster-experiment",
             tmp_filename,
         ]
