@@ -10,6 +10,7 @@ TODO:
 import logging
 import os
 from abc import ABC, abstractmethod
+from copy import copy
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +28,8 @@ class DimReducer(ABC):
     def __init__(self, config, within_pipeline: bool = False):
         self.config = config
         self.within_pipeline = within_pipeline
+        # replace datasetname slashes with underscores for file paths
+        dataset_name_safe = copy(self.config.data["dataset"]).replace("/", "_")
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -34,7 +37,7 @@ class DimReducer(ABC):
                 logging.StreamHandler(),
                 logging.FileHandler(
                     f"data/{self.config.uuid}/"
-                    f"{self.config.data['dataset']}_"
+                    f"{dataset_name_safe}_"
                     f"{self.config.dim_red['dim_red_method']}.log"
                 ),
             ],
