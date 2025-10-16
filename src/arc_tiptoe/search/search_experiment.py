@@ -159,7 +159,7 @@ class SearchExperimentSingleThread:
             return faiss.read_index(self.faiss_index_path)
 
         centroids = np.loadtxt(self.centroids_path)
-        cluster_index = faiss.IndexFlatL2(centroids.shape[1])
+        cluster_index = faiss.IndexFlatIP(centroids.shape[1])
         cluster_index.add(centroids.astype("float32"))
         return cluster_index
 
@@ -216,8 +216,11 @@ class SearchExperimentSingleThread:
             "clusterIndices": cluster_indices,
             "queryText": query_text,
         }
-        tmp_filename = f"{self.search_dir}/tmp_{uuid4()}.json"
+        tmp_filename = f"{self.search_dir}/tmp/tmp_{uuid4()}.json"
         with open(tmp_filename, "w", encoding="utf-8") as f:
+            json.dump(query_dict, f)
+
+        with open("debug.json", "w", encoding="utf-8") as f:
             json.dump(query_dict, f)
 
         cmd = [
