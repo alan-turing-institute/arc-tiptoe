@@ -168,10 +168,11 @@ class SearchExperimentSingleThread:
     ) -> list[int]:
         """Find the top-k nearest clusters fro a given embedding"""
         if self.cluster_index is None:
+            print("No cluster index found, returning cluster 0")
             return [0]
 
         _, indices = self.cluster_index.search(
-            embedding.reshape(1, -1).astype("float32"), top_k
+            embedding.reshape(1, -1).astype("float32"), top_k, return_distance=True
         )
 
         # only return valid clusters
