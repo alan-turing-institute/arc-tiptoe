@@ -161,14 +161,27 @@ class SearchExperimentSingleThread:
 
     def _load_pca_components(self):
         """Load PCA components from a file if needed."""
-        return np.load(self.config["dim_reduction"]["pca_components_file"])
+        current_dir = Path.cwd()
+        if current_dir.name == "search":
+            pca_components_path = str(
+                Path("..") / self.config["dim_reduction"]["pca_components_file"]
+            )
+        return np.load(pca_components_path)
 
     def _load_cluster_index(self):
         """Load the FAISS index for cluster search"""
+        current_dir = Path.cwd()
+        if current_dir.name == "search":
+            centroids_file = str(
+                Path("..") / self.config["clustering"]["centroids_file"]
+            )
+
         if os.path.exists(self.faiss_index_path):
+            print(f"Loading FAISS index from {self.faiss_index_path}")
             return faiss.read_index(self.faiss_index_path)
 
-        centroids = np.loadtxt(self.centroids_path)
+        print(f"Loading centroids from {centroids_file}")
+        centroids = np.loadtxt(centroids_file)
         cluster_index = faiss.IndexFlatL2(centroids.shape[1])
         cluster_index.add(centroids.astype("float32"))
         return cluster_index
