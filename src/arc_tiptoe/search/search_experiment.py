@@ -166,6 +166,8 @@ class SearchExperimentSingleThread:
             pca_components_path = str(
                 Path("..") / self.config["dim_reduction"]["pca_components_file"]
             )
+        else:
+            pca_components_path = self.config["dim_reduction"]["pca_components_file"]
         return np.load(pca_components_path)
 
     def _load_cluster_index(self):
@@ -175,6 +177,8 @@ class SearchExperimentSingleThread:
             centroids_file = str(
                 Path("..") / self.config["clustering"]["centroids_file"]
             )
+        else:
+            centroids_file = self.config["clustering"]["centroids_file"]
 
         if os.path.exists(self.faiss_index_path):
             print(f"Loading FAISS index from {self.faiss_index_path}")
