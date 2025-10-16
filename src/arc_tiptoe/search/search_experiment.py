@@ -13,8 +13,11 @@ import faiss
 import ir_datasets
 import numpy as np
 import pandas as pd
+import torch
 from tqdm import tqdm as tqdm_sync
 from tqdm.asyncio import tqdm
+
+from arc_tiptoe.preprocess.embedding import tt_models
 
 
 class SearchExperimentAsync:
@@ -139,8 +142,15 @@ class SearchExperimentSingleThread:
         self.centroids_path = f"data/{self.config['uuid']}/clusters/centroids.txt"
         self.cluster_index = self._load_cluster_index()
         self.num_clusters = self.config["clustering"].get("total_clusters")
+        self.model_name = self.config["embedding"].get("model_name")
+        self.model = self._load_model()
 
         self._load_queries()
+
+    def _load_model(self):
+        """Load the embedding model"""
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        return tt_models.load_sentence_transformer(self.model_name, device)
 
     def _load_queries(self):
         """Load preprocessed queries from a CSV file.
@@ -183,12 +193,18 @@ class SearchExperimentSingleThread:
 
         return valid_clusters, distances
 
-    def _process_query(self, query_embed):
+    def _process_query(self, query_text):
         """Process a single query embedding prior to search.
 
         This runs the search over the centroids to extract the top-k clusters, and
         runs the dimensionality reduction (if needed) and quantisation
         """
+        # Print query
+        print(f"Processing query: {query_text}")
+
+        # Embed query
+        query_embed = self.model.encode_query([query_text], convert_to_numpy=True)[0]
+
         if self.config["dim_reduction"]["applied"]:
             query_embed = np.matmul(query_embed, self.pca_components)
 
@@ -213,10 +229,10 @@ class SearchExperimentSingleThread:
     def _single_query_search(self, query):
         """Run search for a single query."""
         query_id = query["query_id"]
-        query_embed = np.array(json.loads(query["embedding"]))
+        # query_embed = np.array(json.loads(query["embedding"]))
         query_text = query["text"]
 
-        processed_query_embed, cluster_indices = self._process_query(query_embed)
+        processed_query_embed, cluster_indices = self._process_query(query_text)
         query_dict = {
             "queryEmbed": processed_query_embed.tolist(),
             "clusterIndices": cluster_indices,
