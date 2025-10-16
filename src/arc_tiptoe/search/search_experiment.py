@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +16,81 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm as tqdm_sync
 from tqdm.asyncio import tqdm
+
+
+@dataclass
+class ClusterResult:
+    score: int
+    url: str
+
+    def to_dict(self) -> dict:
+        return {"score": self.score, "url": self.url}
+
+
+@dataclass
+class SearchResult:
+    query_id: str
+    cluster_results: list[list[ClusterResult]]
+    cluster_total_comms: list[float]
+
+    @classmethod
+    def from_dict(cls, data: dict, n_clusters: int) -> "SearchResult":
+        return cls(
+            query_id=data["query_id"],
+            cluster_results=[
+                [ClusterResult(**res) for res in data[f"cluster_{i + 1}_res"]]
+                for i in range(n_clusters)
+            ],
+            cluster_total_comms=[
+                data[f"cluster_{i + 1}_total_comm"] for i in range(n_clusters)
+            ],
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "cluster_results": [
+                [res.__dict__ for res in cluster] for cluster in self.cluster_results
+            ],
+            "cluster_total_comms": self.cluster_total_comms,
+        }
+
+
+@dataclass
+class Performance:
+    preproc: float
+    client_total: float
+    round_1: float
+    round_2: float
+    total: float
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Performance":
+        return cls(
+            preproc=float(data.get("preproc", 0.0)),
+            client_total=float(data.get("client total", 0.0)),
+            round_1=float(data.get("round 1", 0.0)),
+            round_2=float(data.get("round 2", 0.0)),
+            total=float(data.get("total", 0.0)),
+        )
+
+    def __repr__(self) -> str:
+        return f"""Performance(
+            preproc={self.preproc},
+            client_total={self.client_total}
+            round_1={self.round_1}
+            round_2={self.round_2}
+            total={self.total}
+        )"""
+
+    def to_dict(self) -> dict:
+        return {
+            "preproc": self.preproc,
+            "client_total": self.client_total,
+            "round_1": self.round_1,
+            "round_2": self.round_2,
+            "total": self.total,
+        }
 
 
 class SearchExperimentAsync:
@@ -36,8 +112,8 @@ class SearchExperimentAsync:
         self.cluster_search_num = self.config["clustering"].get("search_top_k", 4)
         self.results_df = pd.DataFrame(
             columns=["query_id"]
-            + [f"cluster_{i+1}_res" for i in range(self.cluster_search_num)]
-            + [f"cluster_{i+1}_total_comm" for i in range(self.cluster_search_num)]
+            + [f"cluster_{i + 1}_res" for i in range(self.cluster_search_num)]
+            + [f"cluster_{i + 1}_total_comm" for i in range(self.cluster_search_num)]
         )
         self.results = []
         self.num_clusters = self.config["clustering"].get("total_clusters")
@@ -127,10 +203,9 @@ class SearchExperimentSingleThread:
         self.cluster_search_num = self.config["clustering"].get("search_top_k", 4)
         self.results_df = pd.DataFrame(
             columns=["query_id"]
-            + [f"cluster_{i+1}_res" for i in range(self.cluster_search_num)]
-            + [f"cluster_{i+1}_total_comm" for i in range(self.cluster_search_num)]
+            + [f"cluster_{i + 1}_res" for i in range(self.cluster_search_num)]
+            + [f"cluster_{i + 1}_total_comm" for i in range(self.cluster_search_num)]
         )
-        self.results = []
         self.pca_components = self._load_pca_components()
         self.faiss_index_path = (
             f"data/{self.config['uuid']}/artifact/"
@@ -172,13 +247,21 @@ class SearchExperimentSingleThread:
 
         _, indices = self.cluster_index.search(embedding.reshape(1, -1), top_k)
 
-        # only return valid clusters
-        valid_clusters = []
-        for i in range(len(indices[0])):
-            if indices[0][i] < self.num_clusters:
-                valid_clusters.append(int(indices[0][i]))
+        indices = [int(idx) for idx in indices[0]]  # unpack
+        # # only return valid clusters
+        # valid_clusters = []
+        # for i in range(len(indices[0])):
+        #     if indices[0][i] < self.num_clusters:
+        #         valid_clusters.append(int(indices[0][i]))
+        if any(idx >= self.num_clusters for idx in indices):
+            msg = (
+                f"Cluster index returned invalid cluster. "
+                f"Max valid cluster is {self.num_clusters - 1}, "
+                f"got {indices[0]}"
+            )
+            raise ValueError(msg)
 
-        return valid_clusters
+        return indices
 
     def _process_query(self, query_embed):
         """Process a single query embedding prior to search.
@@ -204,7 +287,7 @@ class SearchExperimentSingleThread:
 
         return query_embed_quant, cluster_indices
 
-    def _single_query_search(self, query):
+    def _single_query_search(self, query) -> tuple[SearchResult, list[Performance]]:
         """Run search for a single query."""
         query_id = query["query_id"]
         query_embed = np.array(json.loads(query["embedding"]))
@@ -230,24 +313,57 @@ class SearchExperimentSingleThread:
             tmp_filename,
         ]
 
-        process = subprocess.run(
-            cmd,
-            cwd=self.search_dir,
-            check=True,
-            capture_output=True,
-        )
+        try:
+            process = subprocess.run(
+                cmd,
+                cwd=self.search_dir,
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"Error running command: {e}")
+            print("PROCESS STDOUT:\n", e.stdout.decode("utf-8"))
+            print("PROCESS STDERR:\n", e.stderr.decode("utf-8"))
+            raise e
 
         stdout = process.stdout
         output = stdout.decode("utf-8").splitlines()
 
-        result = self._parse_go_output(output[-1], query_id)
-        self.results.append(result)
-        return result
+        print(stdout.decode("utf-8"))
 
-    def _parse_go_output(self, output, query_id):
-        """Parse the output from the Go program and return a structured dictionary."""
+        result, perf = self._parse_go_output(output, query_id)
 
-        results = json.loads(output.splitlines()[-1])
+        print(perf)
+
+        return result, perf
+
+    def _parse_go_output_performance(self, output) -> list[Performance]:
+        performances = []
+        while "\tAnswered in:" in output:
+            perf_start_index = output.index("\tAnswered in:")
+            perf_end_index = perf_start_index + output[perf_start_index:].index("---")
+            perf = [
+                x.strip().split(" ", 1)
+                for x in output[perf_start_index + 1 : perf_end_index]
+            ]
+            performances.append(
+                Performance.from_dict(
+                    {x[1].replace("(", "").replace(")", ""): x[0] for x in perf}
+                )  # reorder and remove parentheses
+            )
+            output = output[perf_end_index + 1 :]
+        return performances
+
+    def _parse_go_output(
+        self, output, query_id
+    ) -> tuple[SearchResult, list[Performance]]:
+        """Parse the output from the Go program and return a structured dictionaries
+        of results and performance"""
+
+        performance = self._parse_go_output_performance(output)
+
+        raw_results = output[-1]
+        results = json.loads(raw_results.splitlines()[-1])
         structured_results = {"query_id": query_id}
         for cluster_res in results["all_results"]:
             structured_results[f"cluster_{cluster_res['cluster_rank']}_res"] = (
@@ -256,18 +372,37 @@ class SearchExperimentSingleThread:
             structured_results[f"cluster_{cluster_res['cluster_rank']}_total_comm"] = (
                 cluster_res["perf_up"] + cluster_res["perf_down"]
             )
-        return structured_results
+
+        search_result = SearchResult.from_dict(
+            structured_results, self.cluster_search_num
+        )
+        return search_result, performance
 
     def run_experiment(self, output_path: str | None = None):
         """Run the full search experiment."""
-        _ = [
-            self._single_query_search(query)
-            for _, query in tqdm_sync(self.queries.iterrows())
-        ]
-        for result in self.results:
+        results, performances = zip(
+            *[
+                self._single_query_search(query)
+                for _, query in tqdm_sync(self.queries.iterrows())
+            ],
+            strict=True,
+        )
+        for result in results:
             self.results_df = pd.concat(
-                [self.results_df, pd.DataFrame([result])], ignore_index=True
+                [self.results_df, pd.DataFrame([result.to_dict()])], ignore_index=True
             )
+
+        print("Performance summary:")
+
+        perf_df = pd.concat(
+            [
+                pd.DataFrame([{"q": i, **perf.to_dict()} for perf in query_performance])
+                for i, query_performance in enumerate(performances)
+            ]
+        ).reset_index(drop=True)
+        print("average performance per query")
+        print(perf_df.groupby("q").mean())
+
         if output_path is not None:
             self._save_results(output_path)
         return self.results_df

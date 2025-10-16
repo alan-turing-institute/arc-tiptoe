@@ -227,7 +227,8 @@ func (client *Client) singleClusterSearchRunRound(perf Perf,
 
 	// Check clusters are in range
 	if ClusterIndex >= uint64(client.NumClusters()) {
-		panic("One of the returned clusters indices is out of range")
+		panic("One of the returned clusters indices is out of range. Num clusters: " +
+			fmt.Sprintf("%d, got %d", client.NumClusters(), ClusterIndex))
 	}
 
 	if verbose {
