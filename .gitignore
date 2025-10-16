@@ -183,3 +183,4 @@ config/
 .temp/
 processed_queries/
 search_results/
+search/tmp/
