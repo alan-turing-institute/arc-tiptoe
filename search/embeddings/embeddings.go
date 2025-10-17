@@ -11,16 +11,17 @@ import (
 )
 
 func SetupEmbeddingProcess(numClusters int, conf *config.Config) (io.WriteCloser, io.ReadCloser) {
-  var configPath string
-  if searchConfigPath := conf.GetSearchConfigPath(); searchConfigPath != "" {
-    configPath = searchConfigPath
-  } else {
-    panic("No configuration file available for embedding process")
-  }
+	var configPath string
+	if searchConfigPath := conf.GetSearchConfigPath(); searchConfigPath != "" {
+		configPath = searchConfigPath
+	} else {
+		panic("No configuration file available for embedding process")
+	}
 
 	toRun := "embeddings/embed_text.py"
-	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters))
-  
+	topKClusters := conf.GetSearchTopK()
+	cmd := exec.Command("python3", toRun, configPath, strconv.Itoa(numClusters), strconv.Itoa(topKClusters))
+
 	stdin, err1 := cmd.StdinPipe()
 	if err1 != nil {
 		panic(err1)
