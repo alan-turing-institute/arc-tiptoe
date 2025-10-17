@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -53,25 +55,44 @@ func multiClusterClient(coordinatorIP string, conf *config.Config) {
 }
 
 func multiClusterExperiment(coordinatorIP string, conf *config.Config) {
+
+	var query struct {
+		QueryEmbed     []int8   `json:"queryEmbed"`
+		ClusterIndices []uint64 `json:"clusterIndices"`
+		QueryText      string   `json:"queryText"`
+	}
+	var tmpFileName string
+
+	// read temporary query file
 	args := flag.Args()
-	var queryText string
-	fmt.Printf("Is it reaching here?")
 	if len(args) >= 2 {
-		queryText = args[1]
-	}
-	if len(args) >= 3 {
-		coordinatorIP = args[2]
+		tmpFileName = args[1]
 	}
 
-	// // Run with test query
-	// col := color.New(color.FgYellow).Add(color.Bold)
-	// col.Printf("Enter test query: ")
-	// in := bufio.NewScanner(os.Stdin)
-	// in.Scan()
-	// text := in.Text()
-	// fmt.Printf("\n\n")
+	jsonFile, err := os.Open(tmpFileName)
+	if err != nil {
+		panic(err)
+	}
+	byteValue, _ := io.ReadAll(jsonFile)
+	json.Unmarshal(byteValue, &query)
+	queryEmb := query.QueryEmbed
+	topKClusterIndices := query.ClusterIndices
+	queryText := query.QueryText
 
-	protocol.MultiClusterSearchExperiment(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf, queryText, false /* verbose */)
+	// delete temporary query file
+	err = os.Remove(tmpFileName)
+	if err != nil {
+		fmt.Printf("Failed to delete temporary query file: %s\n", tmpFileName)
+	}
+
+	// Run the experiment
+	protocol.MultiClusterSearchExperiment(
+		utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort),
+		conf,
+		queryEmb,
+		topKClusterIndices,
+		queryText,
+		false /* verbose */)
 }
 
 func client_latency(coordinatorIP string, conf *config.Config) {

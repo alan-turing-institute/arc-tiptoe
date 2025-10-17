@@ -47,6 +47,9 @@ dependencies = [
     "torch",
     "transformers",
     "wget>=3.2",
+    "jsonargparse",
+    "ir_datasets",
+    "psutil"
 ]
 
 [project.optional-dependencies]

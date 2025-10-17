@@ -16,6 +16,18 @@ DATASET_SAVE_MAP = {
 }
 
 
+def get_device() -> str:
+    """Get the available device for computation."""
+    if (
+        os.getenv("CUDA_VISIBLE_DEVICES") is not None
+        and os.getenv("CUDA_VISIBLE_DEVICES") != ""
+    ):
+        return "cuda"
+    if os.name == "posix" and os.uname().sysname == "Darwin":
+        return "mps"
+    return "cpu"
+
+
 def save_to_json(results: dict, save_path: str, **json_kwargs) -> str:
     """Save outputs to a JSON file.
     Args:
