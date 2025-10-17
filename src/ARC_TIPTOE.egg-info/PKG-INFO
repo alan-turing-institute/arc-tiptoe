@@ -61,7 +61,7 @@ The version of Tiptoe that was artifact evaluated is tagged as [v0](https://gith
 
 > Tiptoe is a private web search engine that allows clients to search over hundreds of millions of documents, while revealing no information about their search query to the search engine’s servers. Tiptoe’s privacy guarantee is based on cryptography alone; it does not require hardware enclaves or non-colluding servers. Tiptoe uses semantic embeddings to reduce the problem of private full-text search to private nearest-neighbor search. Then, Tiptoe implements private nearest-neighbor search with a new, high-throughput protocol based on linearly homomorphic encryption. Running on a 45-server cluster, Tiptoe can privately search over 360 million web pages with 145 core-seconds of server compute, 56.9 MiB of client-server communication (74% of which can occur before the client enters its search query), and 2.7 seconds of end-to-end latency. Tiptoe’s search works best on conceptual queries (“knee pain”) and less well on exact string matches (“123 Main Street, New York”). On the standard MS MARCO search-quality benchmark, Tiptoe ranks the best-matching result in position 7.7 on average. This is worse than a state-of-the-art, non-private neural search algorithm (average rank: 2.3), but is close to the classical tf-idf search algorithm (average rank: 6.7). Finally, Tiptoe is extensible: it also supports private text-to-image search and, with minor modifications, it can support private search over audio, code, and more.
 
-To minimize the time and cost to reproduce the paper's results, we additionally provide scripts, data sets, and preprocessed data structures to reproduce the Tiptoe text search results over the Common Crawl data set. 
+To minimize the time and cost to reproduce the paper's results, we additionally provide scripts, data sets, and preprocessed data structures to reproduce the Tiptoe text search results over the Common Crawl data set.
 
 **Warning:** This code is a research prototype.
 
@@ -89,9 +89,9 @@ To minimize the time and cost to reproduce the paper's results, we additionally 
    * [Step 3: Cluster assignment](#step3)
    * [Steps 4-6: Cluster preprocessing](#step4)
    * [Step 7: Cryptographic preprocessing](#step7)
-* [Acknowledgements](#ack)   
+* [Acknowledgements](#ack)
 * [Citation](#cite)
-  
+
 ## Overview<a name="overview"></a>
 
 This repository is organized as follows:
@@ -121,7 +121,7 @@ cd tiptoe
 pip3 install -r requirements.txt
 ```
 
-Finally, run `mkdir ~/.aws` and enter your AWS [credentials](https://docs.aws.amazon.com/sdkref/latest/guide/file-location.html) in `~/.aws/credentials`. (This step is needed to use our scripts to launch AWS instances and to download data from S3.) 
+Finally, run `mkdir ~/.aws` and enter your AWS [credentials](https://docs.aws.amazon.com/sdkref/latest/guide/file-location.html) in `~/.aws/credentials`. (This step is needed to use our scripts to launch AWS instances and to download data from S3.)
 The credentials file should be of the form
 ```
 [default]
@@ -150,12 +150,12 @@ cd search/protocol
 cd ../..
 ```
 This script performs the following operations:
-- First, it downloads the Common Crawl text corpus from S3 (on which we have already performed the embedding, dimensionality reduction, and clustering steps). This step requires an AWS credential to be in `~/.aws/credential/`, takes roughly 115 minutes, and writes two directories in `path_to_corpus` of total size roughly 230 GiB. 
+- First, it downloads the Common Crawl text corpus from S3 (on which we have already performed the embedding, dimensionality reduction, and clustering steps). This step requires an AWS credential to be in `~/.aws/credential/`, takes roughly 115 minutes, and writes two directories in `path_to_corpus` of total size roughly 230 GiB.
 - Then, it runs correctness tests on a slice of the Common Crawl corpus. As with the other unit tests, the tests log performance information to the console and will print `PASS` if all correctness tests succeeded. The correctness tests take 1.5h  and require 90 GiB of RAM.
 
 ### Running the Tiptoe servers and client *(optional for artifact eval)*<a name="run"></a>
 
-It is possible to run the Tiptoe client-facing services and the Tiptoe client to perform private searches over the Common Crawl data set, outside of the correctness test and the performance test harnesses. To do so, you must (1) download the required pre-processed server and client states from S3, and then (2) launch each of the Tiptoe server and client processes. 
+It is possible to run the Tiptoe client-facing services and the Tiptoe client to perform private searches over the Common Crawl data set, outside of the correctness test and the performance test harnesses. To do so, you must (1) download the required pre-processed server and client states from S3, and then (2) launch each of the Tiptoe server and client processes.
 
 We store pre-processed copies of the server and client state in S3. The ranking service's state is split into 80 shards, each of which can be downloaded separately and can then be launched as an individual process. (In our evaluation, we run these 80 processes which constitute the ranking service on 40 physical machines.) The URL service's state is split into 8 shards, each of which can be downloaded separately and can then be launched as an individual process. (In our evaluation, we run these 8 processes which constitute the URL service on 4 physical machines.) The Tiptoe coordinator and the Tiptoe client also each have their own state, and can then be launched as individual processes. These processes communicate with each other over the network.
 
@@ -177,7 +177,7 @@ This step requires having an AWS credential in `~/.aws/credentials`. Downloading
   cd ../..
   ```
 
-- **Coordinator:** [<1 min, 1 GiB of disk space] To download the coordinator state, run: 
+- **Coordinator:** [<1 min, 1 GiB of disk space] To download the coordinator state, run:
   ```bash
   cd perf-eval/s3
   python3 text_download_from_s3.py coordinator 0 $path_to_corpus
@@ -190,7 +190,7 @@ This step requires having an AWS credential in `~/.aws/credentials`. Downloading
   python3 text_download_from_s3.py client 0 $path_to_corpus
   cd ../..
   ```
-**All state:** [<1h, 370 GiB of disk] To download all of these files from S3 at once, run 
+**All state:** [<1h, 370 GiB of disk] To download all of these files from S3 at once, run
 ```bash
 cd perf-eval/s3
 ./text_download_all.sh $path_to_corpus
@@ -208,7 +208,7 @@ Launching the Tiptoe servers and clients given their state stored in the directo
   cd ..
   ```
   After roughly 1 min, this command will print `TCP server listening on ip:port` to the console. At this point, the Tiptoe ranking server process is running and ready to answer queries.
-  
+
 - **URL service:** To launch each of the 8 shards, run (where `idx` is between 0 and 7):
   ```bash
   cd search
@@ -218,7 +218,7 @@ Launching the Tiptoe servers and clients given their state stored in the directo
   After roughly 1 min, this command will print `TCP server listening on ip:port` to the console. At this point, the Tiptoe URL server process is running and ready to answer queries.
 
 
-- **Coordinator:** To launch the coordinator, run: 
+- **Coordinator:** To launch the coordinator, run:
   ```bash
   cd search
   go run . coordinator 80 8 $ip0 $ip1 $ip2 $ip3 ... -preamble $path_to_corpus
@@ -241,7 +241,7 @@ Launching the Tiptoe servers and clients given their state stored in the directo
   go run . client $coordinator-ip -preamble $path_to_corpus
   cd ..
   ```
-  After roughly 1 min, this process will print `Enter private search query:` to the console. At this point, enter a private search query. Then, the Tiptoe client will run a round of the private search protocol with the Tiptoe servers, and print logging information as well as the query output to the console. 
+  After roughly 1 min, this process will print `Enter private search query:` to the console. At this point, enter a private search query. Then, the Tiptoe client will run a round of the private search protocol with the Tiptoe servers, and print logging information as well as the query output to the console.
 
 ## Reproducing results from the paper<a name="reproduce"></a>
 
@@ -257,7 +257,7 @@ We provide a script, `tiptoe/perf-eval/runExp.py`, for our performance experimen
 
 ### Running latency and throughput experiments<a name="experiments"></a>
 
-To use this script, please update the security group (under `security`), the secret key pair name (under `keyname`), and the secret key pair path (under `secret_key_path`) in the file `tiptoe/perf-eval/config/ec2.json` to match your AWS credentials. Also, using this script requires that (1) your AWS credentials are stored in `~/.aws/credentials`, and (2)  your git key is added to ssh-agent (because we use agent forwarding to run `git clone` on the EC2 instances). 
+To use this script, please update the security group (under `security`), the secret key pair name (under `keyname`), and the secret key pair path (under `secret_key_path`) in the file `tiptoe/perf-eval/config/ec2.json` to match your AWS credentials. Also, using this script requires that (1) your AWS credentials are stored in `~/.aws/credentials`, and (2)  your git key is added to ssh-agent (because we use agent forwarding to run `git clone` on the EC2 instances).
 
 [4h, launches 47 AWS instances] Then, run:
 ```bash
@@ -266,7 +266,7 @@ cd perf-eval/
 python3 runExp.py
 cd ..
 ```
-This script will print `Experiments finished.` to the console when it terminates. At this point, it will have generated four log files: 
+This script will print `Experiments finished.` to the console when it terminates. At this point, it will have generated four log files:
 - for the latency experiment: `tiptoe/perf-eval/camera-ready-text/40-4-2-latency.log`
 - for the ranking-service throughput experiment: `tiptoe/perf-eval/camera-ready-text/40-4-2-tput-embed.log`
 - for the URL-service throughput experiment: `tiptoe/perf-eval/camera-ready-text/40-4-2-tput-url.log`
@@ -300,7 +300,7 @@ This command prints a table to the command line.
 
 ### Reproducing figure 5<a name="fig5"></a>
 
-Our script runs the latency experiment with a fixed set of text queries, which include the sample queries given in figure 5. (Using a fixed query log does not affect performance since all text queries are encrypted and the Tiptoe servers' computation is "oblivious" in that it operates only over this encryted data.) 
+Our script runs the latency experiment with a fixed set of text queries, which include the sample queries given in figure 5. (Using a fixed query log does not affect performance since all text queries are encrypted and the Tiptoe servers' computation is "oblivious" in that it operates only over this encryted data.)
 
 After having run the latency and throughput experiments, open the file `/perf-eval/camera-ready-text/40-4-2-latency.log`. The first three answers in this file are the answers to the sample queries given in figure 5. In particular, the file `/perf-eval/camera-ready-text/40-4-2-latency.log` should contain roughly the following contents:
 
@@ -397,7 +397,7 @@ For all the scripts in the batch indexing jobs, you will need to update the path
 * `embeddings/train-web.py` generates embeddings for a shard of the c4 dataset
 * `embeddings/trainall-web.py` invokes `train-web.py` to generate embeddings for many shards of the c4 dataset
 * `embeddings/train-msmarco.py` generates embeddings for the MSMARCO document ranking dataset
-  
+
 We recommend running these scripts on one or more GPUs.
 
 ### Step 2: Cluster embeddings<a name="step2"></a>
@@ -414,7 +414,7 @@ We recommend running these scripts on one or more GPUs.
 
 ### Steps 4-6: Cluster processing<a name="step4"></a>
 
-In steps 4-6, we break large clusters into small clusters, group related URLs, and shrink the embedding dimension using PCA. For efficiency, we distribute the processing tasks in `perf-eval/processClusters.py`. To use this script you must set AWS credentials in the same way as outlined above. The script `processClusters.py` distributes `cluster/kmeans/process-all.py` across multiple machines. 
+In steps 4-6, we break large clusters into small clusters, group related URLs, and shrink the embedding dimension using PCA. For efficiency, we distribute the processing tasks in `perf-eval/processClusters.py`. To use this script you must set AWS credentials in the same way as outlined above. The script `processClusters.py` distributes `cluster/kmeans/process-all.py` across multiple machines.
 
 To show the individual effects of steps 4-6 on search quality on the MSMARCO datset, we break steps 4-6 into individual scripts.
 * `cluster/kmeans/url-cluster-msmarco.py`: Group documents within a cluster by embedding distance (MSMARCO datset).

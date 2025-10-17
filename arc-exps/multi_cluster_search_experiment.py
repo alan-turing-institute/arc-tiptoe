@@ -306,7 +306,6 @@ class MultiClusterSearchExperiment:
         search_dir: str = "search",
         results_dir: str = "multi_cluster_results",
     ):
-
         self.config_path = Path(config_path).resolve()
         self.max_clusters = max_clusters
         self.top_n_results = top_n_results
@@ -598,7 +597,7 @@ class MultiClusterSearchExperiment:
                 try:
                     result = await task
                     query_results.append(result)
-                    print(f"Completed query {i+1}/{len(queries)}")
+                    print(f"Completed query {i + 1}/{len(queries)}")
 
                     # Check server health periodically
                     if not self.server_manager.is_healthy():
