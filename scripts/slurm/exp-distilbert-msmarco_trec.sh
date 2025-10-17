@@ -28,7 +28,7 @@ export PATH=$PATH:/bask/projects/v/vjgo8416-co-beagle/software/go/go/bin
 # Set script variables here
 export SEARCH_CONFIG_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/configs/distilbert_config_post_embeddings_search_config.json
 export QUERIES_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/processed_queries/msmarco/msmarco-document_trec-dl-2019/msmarco-distilbert-base-tas-b.csv
-export SAVE_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search_results/msmarco/msmarco-document_trec/distilbert/results.csv
+export SAVE_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search_results/msmarco/msmarco-document_trec/distilbert/${SLURM_JOB_ID}_results.csv
 export SEARCH_PATH=/bask/projects/v/vjgo8416-co-beagle/arc-tiptoe/search
 
 
