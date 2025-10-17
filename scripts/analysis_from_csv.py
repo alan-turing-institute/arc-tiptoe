@@ -7,6 +7,7 @@ import jsonargparse
 
 from arc_tiptoe.constants import RESULTS_DIR
 from arc_tiptoe.eval.accuracy.analysis import evaluate_queries, run_analysis
+from arc_tiptoe.eval.performance.communication_cost import mean_communication_cost
 from arc_tiptoe.eval.utils import parse_clustering_search_results
 from arc_tiptoe.preprocessing.utils.tfidf import load_queries_from_ir_datasets
 from arc_tiptoe.search.tfidf import get_top_relevance_level
@@ -55,6 +56,8 @@ def clustering_analysis(args: clustering_args):
     # create output directories
     outputs_dir = os.path.join(RESULTS_DIR, dataset_name, model_name)
 
+    all_mean_metrics = {}
+
     # loop through n_clusters and save results and analysis
     for n_clusters, cluster_results in all_results.items():
         # evaluate and save results
@@ -71,11 +74,31 @@ def clustering_analysis(args: clustering_args):
             f"{n_clusters}_clusters.json",
         )
         mean_metrics = run_analysis(results, verbose=False)
+
+        # Create new EvalMetrics with total_comm_cost included
+        mean_metrics = mean_metrics._replace(
+            total_comm_cost=mean_communication_cost(cluster_results)
+        )
+
         save_to_json(
             mean_metrics._asdict(),
             mean_results_path,
             indent=2,
         )
+        all_mean_metrics[f"{n_clusters}_clusters"] = mean_metrics._asdict()
+
+    # save all mean metrics
+    all_mean_metrics_path = os.path.join(
+        outputs_dir,
+        "mean_metrics",
+        f"{args.n_results}_results",
+        "all_clusters.json",
+    )
+    save_to_json(
+        all_mean_metrics,
+        all_mean_metrics_path,
+        indent=2,
+    )
 
 
 if __name__ == "__main__":

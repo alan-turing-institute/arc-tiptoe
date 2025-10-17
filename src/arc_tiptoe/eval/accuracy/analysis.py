@@ -22,6 +22,7 @@ class EvalMetrics(NamedTuple):
     DCG: float
     nDCG: float
     MRR: float
+    total_comm_cost: float | None = None
 
 
 def mean_f1_metrics(all_results: dict[str, dict]) -> tuple[float, float, float]:
