@@ -8,7 +8,7 @@ import pandas as pd
 def collate_csvs(input_dir: str):
     dir_components = input_dir.split("/")
     model = dir_components[-1]
-    dataset = dir_components[-3]
+    dataset = dir_components[-2]
 
     output_dir = f"results/{dataset}/{model}/search_results/"
     os.makedirs(output_dir, exist_ok=True)
