@@ -191,19 +191,20 @@ class Embedder(ABC):
             ds_iter = self.dataset.docs_iter()
 
         for doc in tqdm(ds_iter, desc="Processing documents"):
+            doc_body = doc.body if "body" in dir(doc) else doc.text
             docs_buffer.append(
                 {
                     "doc_id": doc.doc_id,
                     "body": (
                         self._preprocess_data(
-                            doc.body,
+                            doc_body,
                             max_length=self.config.embed_pars["sequence_length"],
                         )
                         if self.config.embed_pars["preprocessing_required"]
-                        else doc.body
+                        else doc_body
                     ),
-                    "title": doc.title,
-                    "url": doc.url,
+                    "title": doc.title if "title" in dir(doc) else "",
+                    "url": doc.url if "url" in dir(doc) else "",
                 }
             )
 
